@@ -27,6 +27,8 @@ int commence(char * database, Buffer * buf, int nBlocks) {
    for (num = 0; num < nBlocks; num++) {
       /* set timestamp to -1, -1 means it's not in buffer */
       buf->timestamp[num] = -1;
+      buf->pin[num] = 0;
+      buf->dirty[num] = 0;
    }
    
    return exit_code;
@@ -51,19 +53,48 @@ int squash(Buffer * buf) {
    return 0;
 }
 
+/* returns the index in the buffer array */
 int readPage(Buffer * buf, DiskAddress diskPage) {
-   int num;
+   int num, available = 0, toEvict; /* available is set to 1 if there are any unpinned pages */
+   long oldest = -1;
+
    /* buffer check for page */
    for (num = 0; num < MAX_BUFFER_SIZE; num++) {
       if (buf->timestamp[num] != -1 && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
          printf("DEBUG: found page %d in buffer\n", diskPage.pageId);
          buf->timestamp[num] = time(NULL); 
-         return 0;
+         return num;
       }
    }
    /* if this is reached, then the page is not in the buffer. eviction time */
+   if (buf->numOccupied < buf->nBlocks) {
+      return buf->numOccupied++;
+   }
+   /* all pageslots are full, check if they're all pinned */
+   for (int num = 0; num < MAX_BUFFER_SIZE; num++) {
+      if(buf->pin[num] == 0) { /* if the page is unpinned */
+         if (oldest == -1) { /* initial timestamp */
+            oldest = buf->timestamp[num];
+            toEvict = num;
+         }
+         else if (oldest > buf->timestamp[num]) { /* found an older time stamp */
+            oldest = buf->timestamp[num];
+            toEvict = num;
+         }
+         available = 1;
+      }
+   }
+   if (available == 0) { /* all the pages are pinned */
+      return -1;
+   }
+   /* at this point a page needs to be evicted */
+   flushPage(buf, buf->pages[toEvict].address);
+   /* bring page to buffer */
+   tfs_readPage(diskPage.FD, diskPage.pageId, (unsigned char *)buf->pages[toEvict].block);
+   /* set other bits */
+   buf->pages[toEvict].address = diskPage;
 
-   return 0;
+   return toEvict;
 }
 
 /* If the given disk page is in the buffer, returns its index in
