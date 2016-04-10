@@ -1,5 +1,5 @@
 # 468
-Doug
+
 ### Contributors
 #### Theodore Tan
 #### Doug Foiles
