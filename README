@@ -1,0 +1,30 @@
+TinyFS implementation for CPE 468 (TFS468)
+Foaad Khosmood / Spring 2016 / California Polytechnic State University
+
+How to get updated version:
+
+Using a web-enabled development environment with "wget" installed, do the following.
+* copy http://users.csc.calpoly.edu/~foaad/class/468/TFS468/Makefile2
+* rename it to "Makefile"
+* run "make TFS468"
+* this should copy over the rest of the library, you make make the demo by
+* "make tests"
+
+Files in this directory:
+* tinyFS.h  	//high level settings for TFS468, do not modify
+* libDisk.h 	//disk emulator functions
+* libTinyFS.h 	//TinyFS functions, not all used for TFS468
+* libDisk.o	//disk emulator library
+* libTinyFS.o	//TinyFS library
+* tests.c	//A demo program using TFS468 functionality
+
+
+Latest updates:
+
+Apr. 7, 2016: 
+* object files recompiled under 32bit architecture (Unix3.csc)
+* tfs_deleteFile() example added to tests.c
+* readPage() issue fixed. 
+* tfs_numPages() added
+* Makefile2, the wget enabled make added
+* readDir() and openFiles() display the number of blocks
