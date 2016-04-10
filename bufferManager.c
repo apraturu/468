@@ -43,3 +43,20 @@ int flushPage(Buffer *buf, DiskAddress diskPage) {
 
    return 0;
 }
+
+// returns -1 if page not in buffer
+static int setPin(Buffer *buf, DiskAddress diskPage, int val) {
+   int i = findPage(buf, diskPage);
+   if (i < 0)
+      return -1;
+   buf->pin[i] = val;
+   return 0;
+}
+
+int pinPage(Buffer *buf, DiskAddress diskPage) {
+   return setPin(buf, diskPage, 1);
+}
+
+int unPinPage(Buffer *buf, DiskAddress diskPage) {
+   return setPin(buf, diskPage, 0);
+}
