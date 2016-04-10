@@ -4,22 +4,22 @@
 #define MAX_BUFFER_SIZE 5
 
 typedef struct {
-   char[BLOCKSIZE] block;
-   DiskAddress address;
-} Block;
-
-typedef struct {
    fileDescriptor FD;
    int pageId;
 } DiskAddress;
 
 typedef struct {
+   char block[BLOCKSIZE];
+   DiskAddress address;
+} Block;
+
+typedef struct {
    char *database;
    int nBlocks;
-   Block[MAX_BUFFER_SIZE] pages;
-   long[MAX_BUFFER_SIZE] timestamp;
-   char[MAX_BUFFER_SIZE] pin;
-   char[MAX_BUFFER_SIZE] dirty;
+   Block pages[MAX_BUFFER_SIZE];
+   long timestamp[MAX_BUFFER_SIZE];
+   char pin[MAX_BUFFER_SIZE];
+   char dirty[MAX_BUFFER_SIZE];
    int numOccupied;
 } Buffer;
 
