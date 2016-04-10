@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "bufferManager.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -70,7 +71,10 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
 static int findPage(Buffer *buf, DiskAddress diskPage) {
    int i;
    for (i = 0; i < buf->nBlocks; i++) {
-      if (buf->pages[i].address.FD == diskPage.FD && buf->pages[i].address.pageId == diskPage.pageId)
+      if (buf->timeStamp[i] == -1)
+         continue;
+      if (buf->pages[i].address.FD == diskPage.FD
+       && buf->pages[i].address.pageId == diskPage.pageId)
          break;
    }
    if (i == buf->nBlocks)
@@ -119,4 +123,23 @@ int pinPage(Buffer *buf, DiskAddress diskPage) {
 int unPinPage(Buffer *buf, DiskAddress diskPage) {
    printf("DEBUG: unpinning page %d\n", diskPage.pageId);
    return setPin(buf, diskPage, 0);
+}
+
+int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
+   // if everything is pinned, return -1
+   int i;
+   for (i = 0; i < buf->nBlocks; i++) {
+      if (!buf->pin[i])
+         break;
+   }
+   if (i == buf->nBlocks)
+      return -1;
+
+   diskPage->FD = FD;
+   diskPage->pageId = tfs_numPages(FD);
+   char *data = calloc(BLOCKSIZE, 1);
+   tfs_writePage(FD, diskPage->pageId, data);
+   free(data);
+
+   return readPage(buf, diskPage);
 }
