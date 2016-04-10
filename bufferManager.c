@@ -71,7 +71,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
 static int findPage(Buffer *buf, DiskAddress diskPage) {
    int i;
    for (i = 0; i < buf->nBlocks; i++) {
-      if (buf->timeStamp[i] == -1)
+      if (buf->timestamp[i] == -1)
          continue;
       if (buf->pages[i].address.FD == diskPage.FD
        && buf->pages[i].address.pageId == diskPage.pageId)
@@ -138,8 +138,10 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
    diskPage->FD = FD;
    diskPage->pageId = tfs_numPages(FD);
    char *data = calloc(BLOCKSIZE, 1);
-   tfs_writePage(FD, diskPage->pageId, data);
+   tfs_writePage(FD, diskPage->pageId, (unsigned char *)data);
    free(data);
 
-   return readPage(buf, diskPage);
+   return readPage(buf, *diskPage);
 }
+
+int main() {return 0;}
