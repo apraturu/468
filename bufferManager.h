@@ -31,3 +31,4 @@ int flushPage(Buffer *buf, DiskAddress diskPage);
 int pinPage(Buffer *buf, DiskAddress diskPage);
 int unPinPage(Buffer *buf, DiskAddress diskPage);
 int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage);
+int findPage(Buffer *buf, DiskAddress diskPage);
