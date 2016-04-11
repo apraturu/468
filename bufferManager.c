@@ -68,6 +68,9 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    }
    /* if this is reached, then the page is not in the buffer. eviction time */
    if (buf->numOccupied < buf->nBlocks) {
+      /* bring page to buffer */
+      tfs_readPage(diskPage.FD, diskPage.pageId, 
+                  (unsigned char *)buf->pages[buf->numOccupied].block);
       return buf->numOccupied++;
    }
    /* all pageslots are full, check if they're all pinned */
