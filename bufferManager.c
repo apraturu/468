@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "bufferManager.h"
+#include "bufferTest.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -60,7 +61,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
 
    /* buffer check for page */
    for (num = 0; num < MAX_BUFFER_SIZE; num++) {
-      if (buf->timestamp[num] != -1 && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
+      if (buf->timestamp[num] != -1 && buf->pages[num].address.FD == diskPage.FD && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
          printf("DEBUG: found page %d in buffer\n", diskPage.pageId);
          buf->timestamp[num] = time(NULL); 
          return num;
@@ -71,6 +72,11 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       /* bring page to buffer */
       tfs_readPage(diskPage.FD, diskPage.pageId, 
                   (unsigned char *)buf->pages[buf->numOccupied].block);
+                  
+      /* sets page metadata */
+      buf->pages[buf->numOccupied].address = diskPage; 
+      buf->timestamp[buf->numOccupied] = time(NULL);         
+      
       return buf->numOccupied++;
    }
    /* all pageslots are full, check if they're all pinned */
@@ -94,9 +100,9 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    flushPage(buf, buf->pages[toEvict].address);
    /* bring page to buffer */
    tfs_readPage(diskPage.FD, diskPage.pageId, (unsigned char *)buf->pages[toEvict].block);
-   /* set other bits */
+   /* set other bits*/
    buf->pages[toEvict].address = diskPage;
-
+   buf->timestamp[toEvict] = time(NULL); 
    return toEvict;
 }
 
