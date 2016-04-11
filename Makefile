@@ -1,8 +1,8 @@
 CC = gcc
 FLAGS = -Wall -g
 
-bufferManager: bufferManager.c bufferManager.h
-	$(CC) $(FLAGS) -o bufferManager bufferManager.c libDisk.o libTinyFS.o
+bufferManager: bufferManager.c bufferManager.h bufferTest.c bufferTest.h
+	$(CC) $(FLAGS) -o bufferManager bufferManager.c bufferTest.c libDisk.o libTinyFS.o
 
 TFS468:	
 	wget http://users.csc.calpoly.edu/~foaad/class/468/TFS468/libTinyFS.h 
