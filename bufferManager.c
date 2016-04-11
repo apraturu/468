@@ -69,6 +69,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    }
    /* if this is reached, then the page is not in the buffer. eviction time */
    if (buf->numOccupied < buf->nBlocks) {
+      printf("DEBUG: found empty slot in buffer for page %d\n", diskPage.pageId);
       /* bring page to buffer */
       tfs_readPage(diskPage.FD, diskPage.pageId, 
                   (unsigned char *)buf->pages[buf->numOccupied].block);
@@ -80,7 +81,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       return buf->numOccupied++;
    }
    /* all pageslots are full, check if they're all pinned */
-   for (int num = 0; num < MAX_BUFFER_SIZE; num++) {
+   for (num = 0; num < MAX_BUFFER_SIZE; num++) {
       if(buf->pin[num] == 0) { /* if the page is unpinned */
          if (oldest == -1) { /* initial timestamp */
             oldest = buf->timestamp[num];
@@ -94,15 +95,18 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       }
    }
    if (available == 0) { /* all the pages are pinned */
+      printf("DEBUG: all pages were pinned, return error.\n");
       return -1;
    }
    /* at this point a page needs to be evicted */
+   printf("DEBUG: flushing page at %d and replacing with page %d\n", toEvict, diskPage.pageId);
    flushPage(buf, buf->pages[toEvict].address);
    /* bring page to buffer */
    tfs_readPage(diskPage.FD, diskPage.pageId, (unsigned char *)buf->pages[toEvict].block);
    /* set other bits*/
    buf->pages[toEvict].address = diskPage;
    buf->timestamp[toEvict] = time(NULL); 
+
    return toEvict;
 }
 
