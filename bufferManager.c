@@ -108,7 +108,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
 
 /* If the given disk page is in the buffer, returns its index in
  * the buffer's array. Otherwise, returns -1. */
-static int findPage(Buffer *buf, DiskAddress diskPage) {
+int findPage(Buffer *buf, DiskAddress diskPage) {
    int i;
    for (i = 0; i < buf->nBlocks; i++) {
       if (buf->timestamp[i] == -1)
