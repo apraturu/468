@@ -234,7 +234,7 @@ int main() {
    printPage(&buffer, da3);
    */
    
-   //squash(&buffer);
+   squash(&buffer);
    
    return 0;
 }
