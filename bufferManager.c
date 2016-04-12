@@ -192,7 +192,7 @@ int main() {
    Buffer buffer;
 
    commence("test.txt", &buffer, MAX_BUFFER_SIZE);
-
+   
    DiskAddress da1, da2, da3;
    da1.FD = tfs_openFile("blah.txt");
    da1.pageId = 0;
@@ -200,30 +200,41 @@ int main() {
    da2.pageId = 0;
    da3.FD = da1.FD;
    da3.pageId = 1;
-
+   
    printf("Reading new page (%d,%d)\n", da1.FD, da1.pageId);
    readPage(&buffer, da1);
    checkpoint(&buffer);
+   
    printf("Reading new page (%d,%d)\n", da2.FD, da2.pageId);
    readPage(&buffer, da2);
    checkpoint(&buffer);
-   if(!sleep(2))
+   
+   if(!sleep(2)) 
       printf("Slept for 2 seconds\n");
+      
    printf("Writing old page (%d,%d)\n", da1.FD, da1.pageId);
    writePage(&buffer, da1);
    checkpoint(&buffer);
+   
    printf("Writing old page (%d,%d)\n", da2.FD, da2.pageId);
    writePage(&buffer, da2);
-
    checkpoint(&buffer);
-
+   
    printf("\n");
-
-   printf("Print page with diskAddress: (%d,%d):\n", da1.FD, da1.pageId);
+   
+   printf("---Test for prints---\n");
+   /*These should be blank as we have not written data to files yet */
+   printf("Print page at index 0\n");
+   pageDump(&buffer, 0);
+   printf("Print same page using diskAddress, (%d,%d):\n", da1.FD, da1.pageId);
    printPage(&buffer, da1);
-
-   squash(&buffer);
-
+   /*printf("Error test. Print page not in buffer\n");
+   printPage(&buffer, da3);
+   printf("Error test. Print page not on disk\n");
+   printPage(&buffer, da3);
+   */
+   
+   //squash(&buffer);
+   
    return 0;
-
 }
