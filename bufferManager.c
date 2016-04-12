@@ -188,4 +188,42 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
    return readPage(buf, *diskPage);
 }
 
-int main() {return 0;}
+int main() {
+   Buffer buffer;
+
+   commence("test.txt", &buffer, MAX_BUFFER_SIZE);
+
+   DiskAddress da1, da2, da3;
+   da1.FD = tfs_openFile("blah.txt");
+   da1.pageId = 0;
+   da2.FD = tfs_openFile("bleh.txt");
+   da2.pageId = 0;
+   da3.FD = da1.FD;
+   da3.pageId = 1;
+
+   printf("Reading new page (%d,%d)\n", da1.FD, da1.pageId);
+   readPage(&buffer, da1);
+   checkpoint(&buffer);
+   printf("Reading new page (%d,%d)\n", da2.FD, da2.pageId);
+   readPage(&buffer, da2);
+   checkpoint(&buffer);
+   if(!sleep(2))
+      printf("Slept for 2 seconds\n");
+   printf("Writing old page (%d,%d)\n", da1.FD, da1.pageId);
+   writePage(&buffer, da1);
+   checkpoint(&buffer);
+   printf("Writing old page (%d,%d)\n", da2.FD, da2.pageId);
+   writePage(&buffer, da2);
+
+   checkpoint(&buffer);
+
+   printf("\n");
+
+   printf("Print page with diskAddress: (%d,%d):\n", da1.FD, da1.pageId);
+   printPage(&buffer, da1);
+
+   squash(&buffer);
+
+   return 0;
+
+}
