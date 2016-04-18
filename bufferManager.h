@@ -23,7 +23,7 @@ typedef struct {
    int numOccupied;
 } Buffer;
 
-int commence(char *databsae, Buffer *buf, int nBlocks);
+int commence(char *database, Buffer *buf, int nBlocks);
 int squash(Buffer *buf);
 int readPage(Buffer *buf, DiskAddress diskPage);
 int writePage(Buffer *buf, DiskAddress diskPage);

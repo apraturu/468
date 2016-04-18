@@ -1,5 +1,9 @@
+/** 
+ * Runs a test program in batch mode for the buffer manager.
+ */
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "tinyFS.h"
 #include "bufferManager.h"
@@ -70,5 +74,143 @@ int printBlock(Buffer *buf, DiskAddress diskPage) {
 }
 
 int main(int argc, char **argv) {
+   if (argc < 2) {
+      perror("usage: ./bufferTest <filename>");
+      exit(1);
+   }
+   char file_name[25];
+   strcpy(file_name, argv[1]);
+
+   printf("%s\n", file_name);
+   FILE *fp = fopen(file_name, "r"); // open test file in read mode
+
+   if (fp == NULL) {
+      perror("error while opening file\n");
+      exit(1);
+   }
+
+   Buffer *buf = malloc(sizeof(Buffer));
+   char *buffer = malloc(15);
+   char x[25];
+   char *ptr, *ptr2, *token;
+   int ret;
+   int ret2;
+   DiskAddress diskPage;
+   while (fscanf(fp, "%s", buffer) != EOF) {
+
+      /* switch statement for process */
+      if (strcmp(buffer, "start") == 0) {
+         fscanf(fp, "%s", buffer);
+         strcpy(x, buffer);
+         fscanf(fp, "%s", buffer);
+
+         ret = (int)strtol(buffer, &ptr, 10);
+
+         commence(x, buf, ret);
+      } 
+      else if (strcmp(buffer, "end") == 0) {
+         squash(buf);
+         exit(0);
+      }
+      else if (strcmp(buffer, "read") == 0) {
+         fscanf(fp, "%s", buffer);
+         if (buffer != NULL) {
+           ptr = buffer;
+
+            token = strsep(&buffer, ",");
+            printf("%s\n", token);
+            ret = (int)strtol(token, &ptr2, 10);
+            token = strsep(&buffer, ",");
+            ret2 = (int)strtol(token, &ptr2, 10);
+
+           free(ptr);
+         }
+         diskPage.FD = ret;
+         diskPage.pageId = ret2;
+         readPage(buf, diskPage);
+      }
+      else if (strcmp(buffer, "write") == 0) {
+         fscanf(fp, "%s", buffer);
+         if (buffer != NULL) {
+           ptr = buffer;
+
+            token = strsep(&buffer, ",");
+            printf("%s\n", token);
+            ret = (int)strtol(token, &ptr2, 10);
+            token = strsep(&buffer, ",");
+            ret2 = (int)strtol(token, &ptr2, 10);
+
+           free(ptr);
+         }
+         diskPage.FD = ret;
+         diskPage.pageId = ret2;
+         writePage(buf, diskPage);
+      }
+      else if (strcmp(buffer, "flush") == 0) {
+         fscanf(fp, "%s", buffer);
+         if (buffer != NULL) {
+           ptr = buffer;
+
+            token = strsep(&buffer, ",");
+            printf("%s\n", token);
+            ret = (int)strtol(token, &ptr2, 10);
+            token = strsep(&buffer, ",");
+            ret2 = (int)strtol(token, &ptr2, 10);
+
+           free(ptr);
+         }
+         diskPage.FD = ret;
+         diskPage.pageId = ret2;
+         flushPage(buf, diskPage);
+      }
+      else if (strcmp(buffer, "pin") == 0) {
+         fscanf(fp, "%s", buffer);
+         if (buffer != NULL) {
+           ptr = buffer;
+
+            token = strsep(&buffer, ",");
+            printf("%s\n", token);
+            ret = (int)strtol(token, &ptr2, 10);
+            token = strsep(&buffer, ",");
+            ret2 = (int)strtol(token, &ptr2, 10);
+
+           free(ptr);
+         }
+         diskPage.FD = ret;
+         diskPage.pageId = ret2;
+         pinPage(buf, diskPage);
+      }
+      else if (strcmp(buffer, "unpin") == 0) {
+         fscanf(fp, "%s", buffer);
+         if (buffer != NULL) {
+           ptr = buffer;
+
+            token = strsep(&buffer, ",");
+            printf("%s\n", token);
+            ret = (int)strtol(token, &ptr2, 10);
+            token = strsep(&buffer, ",");
+            ret2 = (int)strtol(token, &ptr2, 10);
+
+           free(ptr);
+         }
+         diskPage.FD = ret;
+         diskPage.pageId = ret2;
+         unPinPage(buf, diskPage);
+      }
+      else if (strcmp(buffer, "new") == 0) {
+         fscanf(fp, "%s", buffer);
+         ret = (int)strtol(buffer, &ptr, 10);
+         for (int i = 1; i <= ret; ++i)
+         {
+            newPage(buf, ret, diskPage);
+         }
+      }
+      else if (strcmp(buffer, "check") == 0) {
+         checkpoint(buf);
+      }
+      else /* default: */ {
+         printf("invalid operation\n");
+      }
+   }
    return 0;
 }
