@@ -106,6 +106,7 @@ int main(int argc, char **argv) {
 
          ret = (int)strtol(buffer, &ptr, 10);
          commence(x, buf, ret);
+         tfs_openFile(x);
       } 
       else if (strcmp(buffer, "end") == 0) {
          squash(buf);
