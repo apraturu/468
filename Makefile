@@ -1,11 +1,11 @@
 CC = gcc
 FLAGS = -Wall -g
 
-bufferManager: bufferManager.c bufferManager.h bufferTest.c bufferTest.h
-	$(CC) $(FLAGS) -o bufferManager bufferManager.c bufferTest.c libDisk.o libTinyFS.o
+bufferTest: bufferTest.c bufferManager.h bufferTest.h
+	$(CC) $(FLAGS) -o bufferTest bufferTest.c libDisk.o libTinyFS.o
 
-mac: bufferManager.c bufferManager.h bufferTest.c bufferTest.h
-	$(CC) $(FLAGS) -o bufferManager bufferManager.c bufferTest.c libDisk32.o libTinyFS32.o
+mac: bufferTest.c bufferManager.h bufferTest.h
+	$(CC) $(FLAGS) -o bufferTest bufferTest.c libDisk32.o libTinyFS32.o
 
 TFS468:	
 	wget http://users.csc.calpoly.edu/~foaad/class/468/TFS468/libTinyFS.h 
