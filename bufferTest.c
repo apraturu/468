@@ -200,9 +200,10 @@ int main(int argc, char **argv) {
       else if (strcmp(buffer, "new") == 0) {
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         for (int i = 1; i <= ret; ++i)
+         int i;
+         for (i = 1; i <= ret; ++i)
          {
-            newPage(buf, ret, diskPage);
+            newPage(buf, ret, &diskPage);
          }
       }
       else if (strcmp(buffer, "check") == 0) {
