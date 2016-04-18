@@ -96,6 +96,9 @@ int main(int argc, char **argv) {
    int ret;
    int ret2;
    DiskAddress diskPage;
+
+   DiskAddress da1, da2, da3;
+
    while (fscanf(fp, "%s", buffer) != EOF) {
 
       /* switch statement for process */
@@ -106,7 +109,13 @@ int main(int argc, char **argv) {
 
          ret = (int)strtol(buffer, &ptr, 10);
          commence(x, buf, ret);
-         tfs_openFile(x);
+         
+         da1.FD = tfs_openFile("blah.txt");
+         da1.pageId = 0;
+         da2.FD = tfs_openFile("bleh.txt");
+         da2.pageId = 1;
+         da3.FD = da1.FD;
+         da3.pageId = 2;
       } 
       else if (strcmp(buffer, "end") == 0) {
          squash(buf);
@@ -114,87 +123,72 @@ int main(int argc, char **argv) {
       }
       else if (strcmp(buffer, "read") == 0) {
          fscanf(fp, "%s", buffer);
-         if (buffer != NULL) {
-           ptr = buffer;
-
-            token = strsep(&buffer, ",");
-            printf("%s\n", token);
-            ret = (int)strtol(token, &ptr2, 10);
-            token = strsep(&buffer, ",");
-            ret2 = (int)strtol(token, &ptr2, 10);
-
-           free(ptr);
+         ret = (int)strtol(buffer, &ptr, 10);
+         if (ret == 0) {
+            diskPage = da1;
          }
-         diskPage.FD = ret;
-         diskPage.pageId = ret2;
+         else if (ret == 1){
+            diskPage = da2;
+         }
+         else if (ret == 2){
+            diskPage = da3;
+         }
          readPage(buf, diskPage);
       }
       else if (strcmp(buffer, "write") == 0) {
          fscanf(fp, "%s", buffer);
-         if (buffer != NULL) {
-           ptr = buffer;
-
-            token = strsep(&buffer, ",");
-            printf("%s\n", token);
-            ret = (int)strtol(token, &ptr2, 10);
-            token = strsep(&buffer, ",");
-            ret2 = (int)strtol(token, &ptr2, 10);
-
-           free(ptr);
+         ret = (int)strtol(buffer, &ptr, 10);
+         if (ret == 0) {
+            diskPage = da1;
          }
-         diskPage.FD = ret;
-         diskPage.pageId = ret2;
+         else if (ret == 1){
+            diskPage = da2;
+         }
+         else if (ret == 2){
+            diskPage = da3;
+         }
          writePage(buf, diskPage);
       }
       else if (strcmp(buffer, "flush") == 0) {
          fscanf(fp, "%s", buffer);
-         if (buffer != NULL) {
-           ptr = buffer;
-
-            token = strsep(&buffer, ",");
-            printf("%s\n", token);
-            ret = (int)strtol(token, &ptr2, 10);
-            token = strsep(&buffer, ",");
-            ret2 = (int)strtol(token, &ptr2, 10);
-
-           free(ptr);
+         ret = (int)strtol(buffer, &ptr, 10);
+         if (ret == 0) {
+            diskPage = da1;
          }
-         diskPage.FD = ret;
-         diskPage.pageId = ret2;
+         else if (ret == 1){
+            diskPage = da2;
+         }
+         else if (ret == 2){
+            diskPage = da3;
+         }
          flushPage(buf, diskPage);
       }
       else if (strcmp(buffer, "pin") == 0) {
          fscanf(fp, "%s", buffer);
-         if (buffer != NULL) {
-           ptr = buffer;
-
-            token = strsep(&buffer, ",");
-            printf("%s\n", token);
-            ret = (int)strtol(token, &ptr2, 10);
-            token = strsep(&buffer, ",");
-            ret2 = (int)strtol(token, &ptr2, 10);
-
-           free(ptr);
+         ret = (int)strtol(buffer, &ptr, 10);
+         if (ret == 0) {
+            diskPage = da1;
          }
-         diskPage.FD = ret;
-         diskPage.pageId = ret2;
+         else if (ret == 1){
+            diskPage = da2;
+         }
+         else if (ret == 2){
+            diskPage = da3;
+         }
          pinPage(buf, diskPage);
       }
       else if (strcmp(buffer, "unpin") == 0) {
          fscanf(fp, "%s", buffer);
-         if (buffer != NULL) {
-           ptr = buffer;
-
-            token = strsep(&buffer, ",");
-            printf("%s\n", token);
-            ret = (int)strtol(token, &ptr2, 10);
-            token = strsep(&buffer, ",");
-            ret2 = (int)strtol(token, &ptr2, 10);
-
-           free(ptr);
+         ret = (int)strtol(buffer, &ptr, 10);
+         if (ret == 0) {
+            diskPage = da1;
          }
-         diskPage.FD = ret;
-         diskPage.pageId = ret2;
+         else if (ret == 1){
+            diskPage = da2;
+         }
+         else if (ret == 2){
+            diskPage = da3;
+         }
          unPinPage(buf, diskPage);
       }
       else if (strcmp(buffer, "new") == 0) {
