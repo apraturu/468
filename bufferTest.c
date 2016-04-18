@@ -105,7 +105,6 @@ int main(int argc, char **argv) {
          fscanf(fp, "%s", buffer);
 
          ret = (int)strtol(buffer, &ptr, 10);
-
          commence(x, buf, ret);
       } 
       else if (strcmp(buffer, "end") == 0) {
