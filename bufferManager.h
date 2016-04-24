@@ -15,15 +15,17 @@ typedef struct {
 
 typedef struct {
    char *database;
-   int nBlocks;
-   Block pages[MAX_BUFFER_SIZE];
-   long timestamp[MAX_BUFFER_SIZE];
-   char pin[MAX_BUFFER_SIZE];
-   char dirty[MAX_BUFFER_SIZE];
-   int numOccupied;
+   int nBufferBlocks;
+   int nCacheBlocks;
+   Block * pages;
+   long * timestamp;
+   char * pin;
+   char * dirty;
+   int numBufferOccupied;
+   int numCacheOccupied;
 } Buffer;
 
-int commence(char *database, Buffer *buf, int nBlocks);
+int commence(char *database, Buffer *buf, int nBufferBlocks, int nCacheBlocks);
 int squash(Buffer *buf);
 int readPage(Buffer *buf, DiskAddress diskPage);
 int writePage(Buffer *buf, DiskAddress diskPage);
@@ -32,3 +34,5 @@ int pinPage(Buffer *buf, DiskAddress diskPage);
 int unPinPage(Buffer *buf, DiskAddress diskPage);
 int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage);
 int findPage(Buffer *buf, DiskAddress diskPage);
+int allocateCachePage(Buffer *buf, Diskaddress diskpage);
+int removeCachePage(Buffer *buf, DiskAddress diskPage);
