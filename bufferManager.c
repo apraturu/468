@@ -235,3 +235,8 @@ int removeCachePage(Buffer *buf, DiskAddress diskPage) {
 
    return 1;
 }
+
+int main() {
+   printf("i hope it works");
+   return 0;
+}
