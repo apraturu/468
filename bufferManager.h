@@ -36,5 +36,5 @@ int pinPage(Buffer *buf, DiskAddress diskPage);
 int unPinPage(Buffer *buf, DiskAddress diskPage);
 int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage);
 int findPage(Buffer *buf, DiskAddress diskPage);
-int allocateCachePage(Buffer *buf, Diskaddress diskpage);
+int allocateCachePage(Buffer *buf, DiskAddress diskpage);
 int removeCachePage(Buffer *buf, DiskAddress diskPage);

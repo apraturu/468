@@ -104,7 +104,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       
       return buf->numBufferOccupied++;
    }
-   /
+   
    /* 
     * Implement LRU eviction.
     * all pageslots are full, check if they're all pinned 
@@ -214,19 +214,19 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
 
 int removeCachePage(Buffer *buf, DiskAddress diskPage) {
    int i;
-   for (i = 0; i < nCacheBlocks; i++) {
+   for (i = 0; i < buf->nCacheBlocks; i++) {
       Block temp = buf->cache[i];
       if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
-         cache_timestamp[i] = -1;
+         buf->cache_timestamp[i] = -1;
          buf->numCacheOccupied--;
          return 0;
       }
    }
 
-   for (i = 0; i < nBufferBlocks; i++) {
+   for (i = 0; i < buf->nBufferBlocks; i++) {
       Block temp = buf->pages[i];
       if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
-         buffer_timestamp[i] = -1;
+         buf->buffer_timestamp[i] = -1;
          buf->pin[i] = 0;
          buf->numBufferOccupied--;
          return 0;
