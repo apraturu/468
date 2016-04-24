@@ -181,3 +181,24 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
 
    return readPage(buf, *diskPage);
 }
+
+int removeCachePage(Buffer *buf, DiskAddress diskPage) {
+   int i;
+   for (i = 0; i < nCacheBlocks; i++) {
+      Block temp = buf->cache[i];
+      if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
+         cache_timestamp[i] = -1;
+         return 0;
+      }
+   }
+
+   for (i = 0; i < nBufferBlocks; i++) {
+      Block temp = buf->pages[i];
+      if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
+         buffer_timestamp[i] = -1;
+         return 0;
+      }
+   }
+
+   return 1;
+}
