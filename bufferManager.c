@@ -212,6 +212,64 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
    return readPage(buf, *diskPage);
 }
 
+int allocateCachePage(Buffer *buf, Diskaddress diskpage){
+       int i, oldestCache = -1, oldestBuf = -1;
+       
+       //Check if cache is full
+       if(buf->nCacheBlocks == buf->numCacheOccupied){
+             
+             //Find index of least recently used for eviction
+             for(i = 0; i < buf->nCacheBlocks; i++){
+                  if(buf->cache_timestamp[oldestCache] > buf->cache_timestamp[i]) {
+                        buf->cache_timestamp[i] = -1;
+                        oldestCache = i;
+                  }      
+             }
+             
+             //Check if buffer is full
+             if(buf->nBufferBlocks == buf->numBufferOccupied){
+                  //If it is full find the least recently used and write to disk
+                  for(i = 0; i < buf->nBlocks; i++){
+                       if(buf->buffer_timestamp[oldestBuf] > buf->buffer_timestamp[i]) {
+                              oldestBuf = i;
+                       }
+                  }
+                  writePage(buf, buf->pages[oldestBuf].address);
+                  flushPage(buf, buf->pages[oldestBuf].address);
+             } else {
+                  //If it is not full then find empty spot and insert into buffer
+                  for(i = 0; i < buf->nBufferBlocks; i++){
+                        if(buf->buffer_timestamp[i] == -1){
+                              oldestBuf = i;
+                              buf->numBufferOccupied++;
+                              buf->buffer_timestamp = time(NULL);
+                              break;
+                        }
+                  }
+             }
+             
+             //Copy the block from the cache into the buffer
+             memcpy(buffer->pages[oldestBuf], buffer->cache[oldestCache], sizeof(BLOCK));
+             
+             
+             buf->pin[oldestBuf] = 1;
+             return -1;
+       }
+       
+       //Write the diskapage passed into the now open cache spot
+       for(i = 0; i < buf->nCacheBlocks; i++){
+             if(buf->timeStamp[i] == -1){
+                   buf->cache[i].address.pageId = diskpage.pageId;
+                   buf->cache[i].address.FD = diskpage.FD;
+                   buf->numCacheOccupied++;
+                   buf->timestamp[i] = time(NULL); 
+                   exit_code = 0;
+                   break;
+             }
+       }
+       return 0;
+ }
+
 int removeCachePage(Buffer *buf, DiskAddress diskPage) {
    int i;
    for (i = 0; i < buf->nCacheBlocks; i++) {
