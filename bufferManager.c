@@ -11,25 +11,47 @@
  * Mount FileSystem,
  * Initialize the buffer.
  */
-int commence(char * database, Buffer * buf, int nBlocks) {
+int commence(char * database,
+             Buffer * buf, 
+             int nBufferBlocks, 
+             int nCacheBlocks) {
    int num, exit_code = 0;
 
    if (access(database, F_OK) == -1) { /* fs does not exist */
-      exit_code += tfs_mkfs(database, (nBlocks * sizeof(Block)) + sizeof(Buffer));
+      exit_code += tfs_mkfs(database, (nBufferBlocks * sizeof(Block)) + sizeof(Buffer));
    }
-
+   /* mount the database */
    exit_code += tfs_mount(database);
 
+   /* initialize buffer */
    buf->database = malloc(sizeof(strlen(database) * sizeof(char)));
    strcpy(buf->database, database);
-   buf->nBlocks = nBlocks;
-   buf->numOccupied = 0; // temporary?
 
-   for (num = 0; num < nBlocks; num++) {
-      /* set timestamp to -1, -1 means it's not in buffer */
-      buf->timestamp[num] = -1;
+   /* persistent slots */
+   buf->nBufferBlocks = nBufferBlocks;
+   buf->numBufferOccupied = 0;
+   buf->pages = malloc(sizeof(Block) * nBufferBlocks);
+   buf->buffer_timestamp = malloc(sizeof(long) * nBufferBlocks);
+
+   /* volatile slots */
+   buf->nCacheBlocks = nCacheBlocks;
+   buf->numCacheOccupied = 0;
+   buf->cache = malloc(sizeof(Block) * nCacheBlocks);
+   buf->cache_timestamp = malloc(sizeof(long) * nCacheBlocks);
+
+   /* other stuff */
+   buf->pin = malloc(sizeof(char) * nBufferBlocks);
+   buf->dirty = malloc(sizeof(char) * nBufferBlocks);
+
+   for (num = 0; num < nBufferBlocks; num++) {
+      /* set timestamp to -1, -1 means it's an empty slot */
+      buf->buffer_timestamp[num] = -1;
       buf->pin[num] = 0;
       buf->dirty[num] = 0;
+   }
+
+   for (num = 0; num < nCacheBlocks; num++) {
+      buf->cache_timestamp[num] = -1;
    }
    
    return exit_code;
@@ -37,7 +59,7 @@ int commence(char * database, Buffer * buf, int nBlocks) {
 
 int squash(Buffer * buf) {
    int num;
-   for (num = 0; num < MAX_BUFFER_SIZE; num++) {
+   for (num = 0; num < buf->nBufferBlocks; num++) {
       if (buf->pin[num] == 1) {
          unPinPage(buf, buf->pages[num].address); 
       }
@@ -46,12 +68,16 @@ int squash(Buffer * buf) {
       }
    }
 
-   tfs_unmount();
-
    free(buf->database);
+   free(buf->pages);
+   free(buf->cache);
+   free(buf->buffer_timestamp);
+   free(buf->cache_timestamp);
+   free(buf->pin);
+   free(buf->dirty);
    free(buf);
 
-   return 0;
+   return tfs_unmount();
 }
 
 /* returns the index in the buffer array */
