@@ -188,6 +188,7 @@ int removeCachePage(Buffer *buf, DiskAddress diskPage) {
       Block temp = buf->cache[i];
       if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
          cache_timestamp[i] = -1;
+         buf->numCacheOccupied--;
          return 0;
       }
    }
@@ -196,6 +197,7 @@ int removeCachePage(Buffer *buf, DiskAddress diskPage) {
       Block temp = buf->pages[i];
       if (temp.address.FD == diskPage.FD && temp.address.pageId == diskPage.pageId) {
          buffer_timestamp[i] = -1;
+         buf->numBufferOccupied--;
          return 0;
       }
    }
