@@ -86,40 +86,44 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    long oldest = -1;
 
    /* buffer check for page */
-   for (num = 0; num < MAX_BUFFER_SIZE; num++) {
-      if (buf->timestamp[num] != -1 && buf->pages[num].address.FD == diskPage.FD && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
-         buf->timestamp[num] = time(NULL); 
+   for (num = 0; num < buf->nBufferBlocks; num++) {
+      if (buf->buffer_timestamp[num] != -1 && buf->pages[num].address.FD == diskPage.FD && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
+         buf->buffer_timestamp[num] = time(NULL); 
          return num;
       }
    }
    /* if this is reached, then the page is not in the buffer. eviction time */
-   if (buf->numOccupied < buf->nBlocks) {
+   if (buf->numBufferOccupied < buf->nBufferBlocks) {
       /* bring page to buffer */
       tfs_readPage(diskPage.FD, diskPage.pageId, 
-                  (unsigned char *)buf->pages[buf->numOccupied].block);
+                  (unsigned char *)buf->pages[buf->numBufferOccupied].block);
                   
       /* sets page metadata */
-      buf->pages[buf->numOccupied].address = diskPage; 
-      buf->timestamp[buf->numOccupied] = time(NULL);         
+      buf->pages[buf->numBufferOccupied].address = diskPage; 
+      buf->buffer_timestamp[buf->numBufferOccupied] = time(NULL);         
       
       return buf->numOccupied++;
    }
-   /* all pageslots are full, check if they're all pinned */
-   for (num = 0; num < MAX_BUFFER_SIZE; num++) {
+   /
+   /* 
+    * Implement LRU eviction.
+    * all pageslots are full, check if they're all pinned 
+    */
+   for (num = 0; num < buf->nBufferBlocks; num++) {
       if(buf->pin[num] == 0) { /* if the page is unpinned */
          if (oldest == -1) { /* initial timestamp */
-            oldest = buf->timestamp[num];
+            oldest = buf->buffer_timestamp[num];
             toEvict = num;
          }
-         else if (oldest > buf->timestamp[num]) { /* found an older time stamp */
-            oldest = buf->timestamp[num];
+         else if (oldest > buf->buffer_timestamp[num]) { /* found an older time stamp */
+            oldest = buf->buffer_timestamp[num];
             toEvict = num;
          }
          available = 1;
       }
    }
    if (available == 0) { /* all the pages are pinned */
-      return -1;
+      return -1; /* error */
    }
    /* at this point a page needs to be evicted */
    flushPage(buf, buf->pages[toEvict].address);
@@ -127,7 +131,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    tfs_readPage(diskPage.FD, diskPage.pageId, (unsigned char *)buf->pages[toEvict].block);
    /* set other bits*/
    buf->pages[toEvict].address = diskPage;
-   buf->timestamp[toEvict] = time(NULL); 
+   buf->buffer_timestamp[toEvict] = time(NULL); 
 
    return toEvict;
 }
@@ -136,14 +140,14 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
  * the buffer's array. Otherwise, returns -1. */
 int findPage(Buffer *buf, DiskAddress diskPage) {
    int i;
-   for (i = 0; i < buf->nBlocks; i++) {
-      if (buf->timestamp[i] == -1)
+   for (i = 0; i < buf->nBufferBlocks; i++) {
+      if (buf->buffer_timestamp[i] == -1)
          continue;
       if (buf->pages[i].address.FD == diskPage.FD
        && buf->pages[i].address.pageId == diskPage.pageId)
          break;
    }
-   if (i == buf->nBlocks)
+   if (i == buf->nBufferBlocks)
       i = -1;
    return i;
 }
@@ -192,11 +196,11 @@ int unPinPage(Buffer *buf, DiskAddress diskPage) {
 int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
    // if everything is pinned, return -1
    int i;
-   for (i = 0; i < buf->nBlocks; i++) {
+   for (i = 0; i < buf->nBufferBlocks; i++) {
       if (!buf->pin[i])
          break;
    }
-   if (i == buf->nBlocks)
+   if (i == buf->nBufferBlocks)
       return -1;
 
    diskPage->FD = FD;
