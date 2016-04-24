@@ -19,7 +19,8 @@ typedef struct {
    int nCacheBlocks;
    Block * pages;
    Block * cache;
-   long * timestamp;
+   long * buffer_timestamp;
+   long * cache_timestamp;
    char * pin;
    char * dirty;
    int numBufferOccupied;
