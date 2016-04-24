@@ -102,7 +102,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       buf->pages[buf->numBufferOccupied].address = diskPage; 
       buf->buffer_timestamp[buf->numBufferOccupied] = time(NULL);         
       
-      return buf->numOccupied++;
+      return buf->numBufferOccupied++;
    }
    /
    /* 
