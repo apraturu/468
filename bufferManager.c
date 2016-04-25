@@ -213,7 +213,7 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
 }
 
 int allocateCachePage(Buffer *buf, DiskAddress diskpage){
-       int i, oldestCache = -1, oldestBuf = -1;
+       int i, oldestCache = 0, oldestBuf = 0;
        
        //Check if cache is full
        if(buf->nCacheBlocks == buf->numCacheOccupied){
@@ -221,10 +221,10 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
              //Find index of least recently used for eviction
              for(i = 0; i < buf->nCacheBlocks; i++){
                   if(buf->cache_timestamp[oldestCache] > buf->cache_timestamp[i]) {
-                        buf->cache_timestamp[i] = -1;
                         oldestCache = i;
-                  }      
+                  }
              }
+             buf->cache_timestamp[oldestCache] = -1;
              
              //Check if buffer is full
              if(buf->nBufferBlocks == buf->numBufferOccupied){
