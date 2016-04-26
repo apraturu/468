@@ -16,14 +16,14 @@ void checkpoint(Buffer *buf) {
    int i;
    char ctimeBuff[256];
    
-   for(i = 0; i < buf->nBlocks; i++) {
+   for(i = 0; i < buf->nBufferBlocks; i++) {
       printf("%d:",i);
       
-      if (buf->timestamp[i] < 0) {
+      if (buf->buffer_timestamp[i] < 0) {
          printf("[%s]\n", EMPTY);
       }
       else {
-         strcpy(ctimeBuff, ctime(&(buf->timestamp[i])));
+         strcpy(ctimeBuff, ctime(&(buf->buffer_timestamp[i])));
          ctimeBuff[strlen(ctimeBuff) - 1] = '\0';
       
          printf("[(%d,%d),", buf->pages[i].address.FD, buf->pages[i].address.pageId);
@@ -33,7 +33,7 @@ void checkpoint(Buffer *buf) {
 }
 
 int pageDump(Buffer *buf, int index) {
-   if (buf->timestamp[index] < 0) {
+   if (buf->buffer_timestamp[index] < 0) {
       printf("No valid block at index %d\n", index); 
       return -1;
    }
@@ -74,7 +74,7 @@ int printBlock(Buffer *buf, DiskAddress diskPage) {
 }
 
 int main(int argc, char **argv) {
-   if (argc < 2) {
+if (argc < 2) {
       perror("usage: ./bufferTest <filename>");
       exit(1);
    }
@@ -95,9 +95,11 @@ int main(int argc, char **argv) {
    char *ptr, *ptr2, *token;
    int ret;
    int ret2;
-   DiskAddress diskPage;
-
-   DiskAddress da1, da2, da3;
+   int i;
+   fileDescriptor fd;
+   DiskAddress *diskPage = malloc(10 * sizeof(DiskAddress));
+   DiskAddress temp;
+   int da_ct = 0;
 
    while (fscanf(fp, "%s", buffer) != EOF) {
 
@@ -108,97 +110,75 @@ int main(int argc, char **argv) {
          fscanf(fp, "%s", buffer);
 
          ret = (int)strtol(buffer, &ptr, 10);
-         commence(x, buf, ret);
-         
-         da1.FD = tfs_openFile("blah.txt");
-         da1.pageId = 0;
-         da2.FD = tfs_openFile("bleh.txt");
-         da2.pageId = 1;
-         da3.FD = da1.FD;
-         da3.pageId = 2;
+         commence(x, buf, ret, ret);
       } 
       else if (strcmp(buffer, "end") == 0) {
          squash(buf);
          exit(0);
       }
-      else if (strcmp(buffer, "read") == 0) {
+      else if (strcmp(buffer,"read") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
+         temp.FD = fd;
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         if (ret == 0) {
-            diskPage = da1;
-         }
-         else if (ret == 1){
-            diskPage = da2;
-         }
-         else if (ret == 2){
-            diskPage = da3;
-         }
-         readPage(buf, diskPage);
+         temp.pageId = ret;
+         readPage(buf, temp);
       }
-      else if (strcmp(buffer, "write") == 0) {
+      else if (strcmp(buffer,"write") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
+         temp.FD = fd;
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         if (ret == 0) {
-            diskPage = da1;
-         }
-         else if (ret == 1){
-            diskPage = da2;
-         }
-         else if (ret == 2){
-            diskPage = da3;
-         }
-         writePage(buf, diskPage);
+         temp.pageId = ret;
+         writePage(buf, temp);
       }
-      else if (strcmp(buffer, "flush") == 0) {
+      else if (strcmp(buffer,"flush") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
+         temp.FD = fd;
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         if (ret == 0) {
-            diskPage = da1;
-         }
-         else if (ret == 1){
-            diskPage = da2;
-         }
-         else if (ret == 2){
-            diskPage = da3;
-         }
-         flushPage(buf, diskPage);
+         temp.pageId = ret;
+         flushPage(buf, temp);
       }
-      else if (strcmp(buffer, "pin") == 0) {
+      else if (strcmp(buffer,"pin") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
+         temp.FD = fd;
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         if (ret == 0) {
-            diskPage = da1;
-         }
-         else if (ret == 1){
-            diskPage = da2;
-         }
-         else if (ret == 2){
-            diskPage = da3;
-         }
-         pinPage(buf, diskPage);
+         temp.pageId = ret;
+         pinPage(buf, temp);
       }
-      else if (strcmp(buffer, "unpin") == 0) {
+      else if (strcmp(buffer,"unpin") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
+         temp.FD = fd;
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         if (ret == 0) {
-            diskPage = da1;
-         }
-         else if (ret == 1){
-            diskPage = da2;
-         }
-         else if (ret == 2){
-            diskPage = da3;
-         }
-         unPinPage(buf, diskPage);
+         temp.pageId = ret;
+         unPinPage(buf, temp);
       }
       else if (strcmp(buffer, "new") == 0) {
+         fscanf(fp, "%s", buffer); /*filename*/
+         strcpy(x, buffer);
+         fd = tfs_openFile(x);
          fscanf(fp, "%s", buffer);
          ret = (int)strtol(buffer, &ptr, 10);
-         int i;
-         for (i = 1; i <= ret; ++i)
-         {
-            newPage(buf, ret, &diskPage);
+         fscanf(fp, "%s", buffer);
+         ret2 = (int)strtol(buffer, &ptr, 10);
+
+         for (i = ret; i <= ret2; i++) {
+            tfs_writePage( fd, i, (unsigned char *)"Hello World!");
          }
+         newPage(buf, fd, &diskPage[da_ct++]);
       }
       else if (strcmp(buffer, "check") == 0) {
          checkpoint(buf);
