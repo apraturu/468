@@ -7,8 +7,6 @@ FLAGS = -Wall -g
 32bit: bufferTest.c bufferManager.h bufferTest.h
 	$(CC) $(FLAGS) -o bufferTest bufferTest.c bufferManager.c libDisk32.o libTinyFS32.o
 
-manager: bufferManager.c bufferManager.h
-	$(CC) $(FLAGS) bufferManager.c libDisk32.o libTinyFS32.o
 TFS468:	
 	wget http://users.csc.calpoly.edu/~foaad/class/468/TFS468/libTinyFS.h 
 	wget http://users.csc.calpoly.edu/~foaad/class/468/TFS468/libTinyFS.o 

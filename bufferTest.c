@@ -92,7 +92,7 @@ if (argc < 2) {
    Buffer *buf = malloc(sizeof(Buffer));
    char *buffer = malloc(15);
    char x[25];
-   char *ptr, *ptr2, *token;
+   char *ptr;
    int ret;
    int ret2;
    int i;
