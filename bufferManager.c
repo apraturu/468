@@ -253,7 +253,6 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
              
              
              buf->pin[oldestBuf] = 1;
-             return -1;
        }
        
        //Write the diskapage passed into the now open cache spot
@@ -266,7 +265,7 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
                    break;
              }
        }
-       return 0;
+       return i;
  }
 
 int removeCachePage(Buffer *buf, DiskAddress diskPage) {
