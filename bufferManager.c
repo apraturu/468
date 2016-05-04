@@ -152,6 +152,22 @@ int findPage(Buffer *buf, DiskAddress diskPage) {
    return i;
 }
 
+/* If the given disk page is in the cache, returns its index in
+ * the cache's array. Otherwise, returns -1. */
+int findPageVolatile(Buffer *buf, DiskAddress diskPage) {
+   int i;
+   for (i = 0; i < buf->nCacheBlocks; i++) {
+      if (buf->cache_timestamp[i] == -1)
+         continue;
+      if (buf->cache[i].address.FD == diskPage.FD
+       && buf->cache[i].address.pageId == diskPage.pageId)
+         break;
+   }
+   if (i == buf->nCacheBlocks)
+      i = -1;
+   return i;
+}
+
 // Have readPage return the index of the page in the buffer after reading it in,
 // or -1 if error. This makes writePage really simple
 // writePage and flushPage return 0 for good, -1 for error?
