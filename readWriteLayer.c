@@ -4,14 +4,15 @@
 #include "readWriteLayer.h"
 #include "tinyFS.h"
 
-/* TO DO */
 char *getPage(Buffer *buf, DiskAddress page) {
-   return NULL;
+   return read(buf,page,0,BLOCKSIZE);
 }
 
-/* TO DO */
-int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) {
-   return -1;
+int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) { 
+   if (dataSize < BLOCKSIZE)
+      return -1;
+   
+   return write(buf,page,0,BLOCKSIZE);
 }
 
 /* returns nBytes worth of content from page with DiskAddres page starting from startOffset
@@ -20,15 +21,18 @@ int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) {
 char *read(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
    char *ret;
    
-   ret = readVolatile(buf,page,startOffset,nBytes);
-   if (ret != NULL)
-      return ret;
-   
-   ret = readPersistent(buf,page,startOffset,nBytes);
-   if (ret != NULL)
-      return ret;
-      
-   return NULL;
+   if (checkVolatileFiles(buf,page) == 1) {
+      ret = readVolatile(buf,page,startOffset,nBytes);
+      if (ret != NULL)
+         return ret;
+   }
+   else if (checkPersistentFiles(buf,page) == 1) {
+      ret = readPersistent(buf,page,startOffset,nBytes);
+      if (ret != NULL)
+         return ret;
+   }
+   else 
+      return NULL;
 }
 
 /* writes the first nBytes from data starting at startOffset into page at diskAddress page and returns 0 on success
@@ -57,7 +61,7 @@ int write(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char *data
  * if the page is not found in THE CACHE, returns null 
  */
 char *readVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
-   int index = findPageVolatile(buf, page);
+   int index = allocateCachePage(buf, page);
    char *ret;
    size = nBytes;
    
@@ -80,7 +84,7 @@ char *readVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
  * if dataSize is less than nBytes, will write what it can and pad rest with 0's
  */
 int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize) {
-   int index = findPageVolatile(buf, page);
+   int index = allocateCachePage(buf, page);
    size = nBytes;
    char *temp;
    
@@ -105,7 +109,7 @@ int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, ch
  * if the page is not found in THE BUFFER, returns null 
  */
 char *readPersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
-   int index = findPage(buf, page);
+   int index = readPage(buf, page);
    char *ret;
    size = nBytes;
    
@@ -128,7 +132,7 @@ char *readPersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes)
  * if dataSize is less than nBytes, will write what it can and pad rest with 0's
  */
 int writePersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize) {
-   int index = findPage(buf, page);
+   int index = readPage(buf, page);
    size = nBytes;
    char *temp;
    
@@ -144,6 +148,7 @@ int writePersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes, 
    temp = calloc(1, nBytes);
    memcpy(temp, data, size);
    memcpy(buf->pages[index].block + startOffset, temp, size);
+   writePage(buf, page);
    
    free(temp);
    return 0;

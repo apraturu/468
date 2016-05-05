@@ -25,6 +25,10 @@ typedef struct {
    char * dirty;
    int numBufferOccupied;
    int numCacheOccupied;
+   int *volatileFDs;
+   int numVolatileFiles;
+   int *persistentFDs;
+   int numPersistentFiles;
 } Buffer;
 
 int commence(char *database, Buffer *buf, int nBufferBlocks, int nCacheBlocks);
@@ -39,3 +43,5 @@ int findPage(Buffer *buf, DiskAddress diskPage);
 int findPageVolatile(Buffer *buf, DiskAddress diskPage);
 int allocateCachePage(Buffer *buf, DiskAddress diskpage);
 int removeCachePage(Buffer *buf, DiskAddress diskPage);
+int checkPersistentFiles(Buffer *buf, int FD);
+int checkVolatileFiles(Buffer *buf, int FD);

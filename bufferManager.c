@@ -42,7 +42,7 @@ int commence(char * database,
    /* other stuff */
    buf->pin = malloc(sizeof(char) * nBufferBlocks);
    buf->dirty = malloc(sizeof(char) * nBufferBlocks);
-
+   
    for (num = 0; num < nBufferBlocks; num++) {
       /* set timestamp to -1, -1 means it's an empty slot */
       buf->buffer_timestamp[num] = -1;
@@ -53,6 +53,9 @@ int commence(char * database,
    for (num = 0; num < nCacheBlocks; num++) {
       buf->cache_timestamp[num] = -1;
    }
+   
+   buf->numVolatilesFiles = 0;
+   buf->numPersistentFiles = 0;
    
    return exit_code;
 }
@@ -75,16 +78,42 @@ int squash(Buffer * buf) {
    free(buf->cache_timestamp);
    free(buf->pin);
    free(buf->dirty);
+   free(buf->volatileFDs);
+   free(buf->persistentFDs);
    free(buf);
 
    return tfs_unmount();
 }
 
+int checkPersistentFiles(Buffer *buf, int FD) {
+   for(int i = 0; i < buf->numPersistentFiles; i++) {
+      if (buf->persistentFDs[i] == FD)
+         return 1;
+   }
+   return -1;
+}
+
+int checkVolatileFiles(Buffer *buf, int FD) {
+   for(int i = 0; i < buf->numVolatileFiles; i++) {
+      if (buf->volatileFDs[i] == FD)
+         return 1;
+   }
+   return -1;
+}
+int checkVolatileFiles(Buffer *buf, int FD);
+
 /* returns the index in the buffer array */
 int readPage(Buffer * buf, DiskAddress diskPage) {
    int num, available = 0, toEvict; /* available is set to 1 if there are any unpinned pages */
    long oldest = -1;
-
+   
+   /* check if this file has been opened before in persistent */
+   if (checkPersistentFiles(buf, diskPage.FD) == -1) {
+      buf->numPersistentFiles += 1;
+      buf->persistentFDs = realloc(buf->persistentFDs, sizeof(int) * buf->numPersistentFiles);
+      buf->persistentFDs[buf->numPersistentFiles-1] = diskPage.FD;
+   }
+   
    /* buffer check for page */
    for (num = 0; num < buf->nBufferBlocks; num++) {
       if (buf->buffer_timestamp[num] != -1 && buf->pages[num].address.FD == diskPage.FD && buf->pages[num].address.pageId == diskPage.pageId) { /* found page in buffer */
@@ -92,6 +121,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
          return num;
       }
    }
+   
    /* if this is reached, then the page is not in the buffer. eviction time */
    if (buf->numBufferOccupied < buf->nBufferBlocks) {
       /* bring page to buffer */
@@ -132,7 +162,7 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
    /* set other bits*/
    buf->pages[toEvict].address = diskPage;
    buf->buffer_timestamp[toEvict] = time(NULL); 
-
+   
    return toEvict;
 }
 
@@ -231,6 +261,14 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
 int allocateCachePage(Buffer *buf, DiskAddress diskpage){
        int i, oldestCache = 0, oldestBuf = 0;
        
+       /* check if this file has been opened before in volatile */
+   if (checkVolatileFiles(buf, diskPage.FD) == -1) {
+      buf->numVolatileFiles += 1;
+      buf->volatileFDs = realloc(buf->voltileFDs, sizeof(int) * buf->numVolatileFiles);
+      buf->volatileFDs[buf->numVolatileFiles-1] = diskPage.FD;
+   }
+   
+       
        //Check if cache is full
        if(buf->nCacheBlocks == buf->numCacheOccupied){
              
@@ -284,6 +322,16 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
        return i;
  }
 
+int writePageVolatile(Buffer *buf, DiskAddress diskPage) {
+   int i = readPage(buf, diskPage);
+   if (i < 0)
+      return -1;
+
+   buf->dirty[i] = 1;
+
+   return 0;
+} 
+ 
 int removeCachePage(Buffer *buf, DiskAddress diskPage) {
    int i;
    for (i = 0; i < buf->nCacheBlocks; i++) {
