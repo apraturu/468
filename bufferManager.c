@@ -321,16 +321,6 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
        }
        return i;
  }
-
-int writePageVolatile(Buffer *buf, DiskAddress diskPage) {
-   int i = readPage(buf, diskPage);
-   if (i < 0)
-      return -1;
-
-   buf->dirty[i] = 1;
-
-   return 0;
-} 
  
 int removeCachePage(Buffer *buf, DiskAddress diskPage) {
    int i;
