@@ -27,20 +27,28 @@ int validateId(char *id) {
 int setType(char *token, Attribute *att) {
    char *end;
 
-   if (!strcasecmp(token, "int,"))
+   if (!strcasecmp(token, "int,")) {
       att->attType = INT;
-   else if (!strcasecmp(token, "float,"))
+      att->size = 4;
+   }
+   else if (!strcasecmp(token, "float,")) {
       att->attType = FLOAT;
+      att->size = 8;
+   }
    else if (!strncasecmp(token, "varchar(", 8)) {
       att->attType = VARCHAR;
       att->size = strtol(token + 8, &end, 10);
       if (end - token <= 8 || strcasecmp(end, "),"))
          return 0;
    }
-   else if (!strcasecmp(token, "datetime,"))
+   else if (!strcasecmp(token, "datetime,")) {
       att->attType = DATETIME;
-   else if (!strcasecmp(token, "boolean,"))
+      att->size = 8;
+   }
+   else if (!strcasecmp(token, "boolean,")) {
       att->attType = BOOLEAN;
+      att->size = 4;
+   }
    else
       return 0;
 
@@ -76,7 +84,7 @@ void *parseAttList(char *delim, Attribute **att) {
 }
 
 // returns null if parsing error
-void *parseCreate(char *query, int size) {
+void *parseCreate(char *query) {
    char *token, *temp, *delim = " \n";
    tableDescription *table = calloc(1, sizeof(tableDescription));
    Attribute **att;
@@ -198,7 +206,7 @@ int main() {
    // can't pass string literal directly to parseCreate because string literals are read-only
    memcpy(arr, query, strlen(query) + 1);
 
-   table = parseCreate(arr, 0);
+   table = parseCreate(arr);
 
    if (table)
       printTable(table);

@@ -54,7 +54,7 @@ int commence(char * database,
       buf->cache_timestamp[num] = -1;
    }
    
-   buf->numVolatilesFiles = 0;
+   buf->numVolatileFiles = 0;
    buf->numPersistentFiles = 0;
    
    return exit_code;
@@ -262,10 +262,10 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
        int i, oldestCache = 0, oldestBuf = 0;
        
        /* check if this file has been opened before in volatile */
-   if (checkVolatileFiles(buf, diskPage.FD) == -1) {
+   if (checkVolatileFiles(buf, diskpage.FD) == -1) {
       buf->numVolatileFiles += 1;
-      buf->volatileFDs = realloc(buf->voltileFDs, sizeof(int) * buf->numVolatileFiles);
-      buf->volatileFDs[buf->numVolatileFiles-1] = diskPage.FD;
+      buf->volatileFDs = realloc(buf->volatileFDs, sizeof(int) * buf->numVolatileFiles);
+      buf->volatileFDs[buf->numVolatileFiles-1] = diskpage.FD;
    }
    
        

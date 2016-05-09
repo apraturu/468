@@ -12,7 +12,7 @@ int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) {
    if (dataSize < BLOCKSIZE)
       return -1;
    
-   return write(buf,page,0,BLOCKSIZE);
+   return write(buf,page,0,BLOCKSIZE, data, BLOCKSIZE);
 }
 
 /* returns nBytes worth of content from page with DiskAddres page starting from startOffset
@@ -21,12 +21,12 @@ int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) {
 char *read(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
    char *ret;
    
-   if (checkVolatileFiles(buf,page) == 1) {
+   if (checkVolatileFiles(buf,page.FD) == 1) {
       ret = readVolatile(buf,page,startOffset,nBytes);
       if (ret != NULL)
          return ret;
    }
-   else if (checkPersistentFiles(buf,page) == 1) {
+   else if (checkPersistentFiles(buf,page.FD) == 1) {
       ret = readPersistent(buf,page,startOffset,nBytes);
       if (ret != NULL)
          return ret;
@@ -63,7 +63,7 @@ int write(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char *data
 char *readVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
    int index = allocateCachePage(buf, page);
    char *ret;
-   size = nBytes;
+   int size = nBytes;
    
    if (index == -1)
       return NULL;
@@ -85,7 +85,7 @@ char *readVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
  */
 int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize) {
    int index = allocateCachePage(buf, page);
-   size = nBytes;
+   int size = nBytes;
    char *temp;
    
    if (index == -1)
@@ -111,7 +111,7 @@ int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, ch
 char *readPersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
    int index = readPage(buf, page);
    char *ret;
-   size = nBytes;
+   int size = nBytes;
    
    if (index == -1)
       return NULL;
@@ -133,7 +133,7 @@ char *readPersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes)
  */
 int writePersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize) {
    int index = readPage(buf, page);
-   size = nBytes;
+   int size = nBytes;
    char *temp;
    
    if (index == -1)

@@ -20,3 +20,5 @@ typedef struct {
    ForeignKey *fKeys;
    int isVolatile;
 } tableDescription;
+
+void *parseCreate(char *query);
