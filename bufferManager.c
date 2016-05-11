@@ -102,6 +102,17 @@ int checkVolatileFiles(Buffer *buf, int FD) {
 }
 int checkVolatileFiles(Buffer *buf, int FD);
 
+/* returns the index of the first empty slot in buffer, or -1 if there isn't one. */
+int findEmpty(Buffer *buf) {
+   int i;
+   for (i = 0; i < buf->nBufferBlocks; i++) {
+      if (buf->buffer_timestamp[i] == -1) {
+         return i;
+      }
+   }
+   return -1;
+}
+
 /* returns the index in the buffer array */
 int readPage(Buffer * buf, DiskAddress diskPage) {
    int num, available = 0, toEvict; /* available is set to 1 if there are any unpinned pages */
@@ -122,17 +133,19 @@ int readPage(Buffer * buf, DiskAddress diskPage) {
       }
    }
    
-   /* if this is reached, then the page is not in the buffer. eviction time */
-   if (buf->numBufferOccupied < buf->nBufferBlocks) {
+   /* if this is reached, then the page is not in the buffer */
+   num = findEmpty(buf);
+   if (num != -1) {
       /* bring page to buffer */
       tfs_readPage(diskPage.FD, diskPage.pageId, 
-                  (unsigned char *)buf->pages[buf->numBufferOccupied].block);
+                  (unsigned char *)buf->pages[num].block);
                   
       /* sets page metadata */
-      buf->pages[buf->numBufferOccupied].address = diskPage; 
-      buf->buffer_timestamp[buf->numBufferOccupied] = time(NULL);         
+      buf->pages[num].address = diskPage; 
+      buf->buffer_timestamp[num] = time(NULL);         
       
-      return buf->numBufferOccupied++;
+      buf->numBufferOccupied++;
+      return num;
    }
    
    /* 
@@ -207,6 +220,7 @@ int writePage(Buffer *buf, DiskAddress diskPage) {
       return -1;
 
    buf->dirty[i] = 1;
+   buf->buffer_timestamp[i] = time(NULL);
 
    return 0;
 }
@@ -259,7 +273,7 @@ int newPage(Buffer *buf, fileDescriptor FD, DiskAddress *diskPage) {
 }
 
 int allocateCachePage(Buffer *buf, DiskAddress diskpage){
-       int i, oldestCache = 0, oldestBuf = 0;
+       int i, bufIndex, oldestCache = 0, oldestBuf = -1;
        
        /* check if this file has been opened before in volatile */
    if (checkVolatileFiles(buf, diskpage.FD) == -1) {
@@ -267,6 +281,14 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
       buf->volatileFDs = realloc(buf->volatileFDs, sizeof(int) * buf->numVolatileFiles);
       buf->volatileFDs[buf->numVolatileFiles-1] = diskpage.FD;
    }
+
+   /* check if this page is already in cache */
+   i = findPageVolatile(buf, diskpage);
+   if (i != -1)
+      return i;
+
+   /* check if this page is already in persistent buffer */
+   bufIndex = findPage(buf, diskpage);
    
        
        //Check if cache is full
@@ -282,12 +304,15 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
              
              //Check if buffer is full
              if(buf->nBufferBlocks == buf->numBufferOccupied){
-                  //If it is full find the least recently used and write to disk
+                  //If it is full find the least recently used unpinned page and write to disk
                   for(i = 0; i < buf->nBufferBlocks; i++){
-                       if(buf->buffer_timestamp[oldestBuf] > buf->buffer_timestamp[i]) {
+                       if(buf->pin[i] == 0 &&
+                        (oldestBuf == -1 || buf->buffer_timestamp[oldestBuf] > buf->buffer_timestamp[i])) {
                               oldestBuf = i;
                        }
                   }
+                  if (oldestBuf == -1) // all pages were pinned
+                     return -1;
                   writePage(buf, buf->pages[oldestBuf].address);
                   flushPage(buf, buf->pages[oldestBuf].address);
              } else {
@@ -316,6 +341,17 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage){
                    buf->cache[i].address.FD = diskpage.FD;
                    buf->numCacheOccupied++;
                    buf->cache_timestamp[i] = time(NULL); 
+
+                   /* if page was already in persistent buffer, copy its data into this cache spot */
+                   if (bufIndex != -1) {
+                        memcpy(buf->cache[i].block, &buf->pages[bufIndex].block, BLOCKSIZE);
+
+                        /* remove page from persistent buffer */
+                        buf->buffer_timestamp[bufIndex] = -1;
+                        buf->pin[bufIndex] = 0;
+                        buf->numBufferOccupied--;
+                   }
+
                    break;
              }
        }
