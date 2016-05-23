@@ -1,6 +1,11 @@
+#ifndef HEAP_H
+#define HEAP_H
+
 #define NAME_LEN 30
 #define MAX_FIELDS 20
 #define PAGE_HDR_SIZE 256
+
+#include "bufferManager.h"
 
 typedef struct {
    char name[NAME_LEN];
@@ -64,3 +69,5 @@ int setField(char *fieldName, char *record, RecordDesc rd, char *value);
 int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *location);
 int deleteRecord(Buffer *buf, DiskAddress page, int recordId);
 int updateRecord(Buffer *buf, DiskAddress page, int recordId, char *record);
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef BUFFERMANAGER_H
+#define BUFFERMANAGER_H
+
 #include "tinyFS.h"
 #include "libTinyFS.h"
 
@@ -45,3 +48,5 @@ int allocateCachePage(Buffer *buf, DiskAddress diskpage);
 int removeCachePage(Buffer *buf, DiskAddress diskPage);
 int checkPersistentFiles(Buffer *buf, int FD);
 int checkVolatileFiles(Buffer *buf, int FD);
+
+#endif
