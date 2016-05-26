@@ -88,7 +88,7 @@ int squash(Buffer * buf) {
 int checkPersistentFiles(Buffer *buf, int FD) {
    for(int i = 0; i < buf->numPersistentFiles; i++) {
       if (buf->persistentFDs[i] == FD)
-         return 1;
+         return i;
    }
    return -1;
 }
@@ -96,11 +96,10 @@ int checkPersistentFiles(Buffer *buf, int FD) {
 int checkVolatileFiles(Buffer *buf, int FD) {
    for(int i = 0; i < buf->numVolatileFiles; i++) {
       if (buf->volatileFDs[i] == FD)
-         return 1;
+         return i;
    }
    return -1;
 }
-int checkVolatileFiles(Buffer *buf, int FD);
 
 /* returns the index of the first empty slot in buffer, or -1 if there isn't one. */
 int findEmpty(Buffer *buf) {
