@@ -382,3 +382,34 @@ int removeCachePage(Buffer *buf, DiskAddress diskPage) {
    return 1;
 }
 
+int removeFileFromPersistentList(Buffer *buf, int fd) {
+   int i;
+   
+   i = checkPersistentFiles(buf,fd);
+   if (i < 0)
+      return -1;
+   
+   while(i < buf->numBufferOccupied + 1) {
+      buf->persistentFDs[i] = buf->persistentFDs[i+1];
+   }
+   buf->numBufferOccupied--;
+   realloc(buf->persistentFDs, sizeof(int) * numBufferOccupied);
+   
+   return 0;
+}
+
+int removeFileFromVolatileList(Buffer *buf, int fd) {
+   int i;
+   
+   i = checkVolatileFiles(buf,fd);
+   if (i < 0)
+      return -1;
+   
+   while(i < buf->numCacheOccupied + 1) {
+      buf->volatileFDs[i] = buf->volatileFDs[i+1];
+   }
+   buf->numCacheOccupied--;
+   realloc(buf->persistentFDs, sizeof(int) * numBufferOccupied);
+   
+   return 0;
+}
