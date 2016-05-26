@@ -21,12 +21,12 @@ int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize) {
 char *read(Buffer *buf, DiskAddress page, int startOffset, int nBytes) {
    char *ret;
    
-   if (checkVolatileFiles(buf,page.FD) == 1) {
+   if (checkVolatileFiles(buf,page.FD) >= 0) {
       ret = readVolatile(buf,page,startOffset,nBytes);
       if (ret != NULL)
          return ret;
    }
-   else if (checkPersistentFiles(buf,page.FD) == 1) {
+   else if (checkPersistentFiles(buf,page.FD) >= 0) {
       ret = readPersistent(buf,page,startOffset,nBytes);
       if (ret != NULL)
          return ret;

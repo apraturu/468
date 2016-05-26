@@ -44,10 +44,13 @@ int seqPutRecord(Buffer *buf, DiskAddress page, char *bytes);
 int seqDeleteRecord(Buffer *buf, DiskAddress page, int recordId);
 
 int pHGetRecSize(Buffer *buf, DiskAddress page);
-int pHSetRecSize(Buffer *buf, DiskAdress page, int size);
+int pHSetRecSize(Buffer *buf, DiskAddress page, int size);
 
 int seqInsertRecord(char *name, char *record, DiskAddress *location);
-int seqUpdateRecord(DiskAddress page, int recordId, char *record);
+int seqUpdateRecord(Buffer *buf, DiskAddress page, int recordId, char *record);
+
+int shiftRecordsTowardsEnd(Buffer *buf, DiskAddress page, int shiftIndex);
+int shiftRecordsTowardsFront(Buffer *buf, DiskAddress page, int shiftIndex);
 
 
 

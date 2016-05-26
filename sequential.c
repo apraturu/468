@@ -5,7 +5,46 @@
 #include "parser.h"
 #include "readWriteLayer.h"
 
-int createSequentialFile(Buffer *buff, char *createTable, RecordDesc recordDesc, int volatileFlag) {
+
+SequentialPageHeader *getSequentialPageHeader(Buffer *buf, DiskAddress addr) {
+   readPage(buf, addr);
+   return (SequentialPageHeader *)read(buf, addr, 0, sizeof(SequentialPageHeader));
+}
+
+SequentialFileHeader *getSequentialFileHeader(Buffer *buf, fileDescriptor fd) {
+   SequentialFileHeader *header = malloc(sizeof(SequentialFileHeader)); 
+   DiskAddress addr;
+   addr.FD = fd;
+   addr.pageId = 0;
+
+   if(checkPersistentFiles(buf, fd) >= 0) {
+       readPage(buf, addr);
+   } else {
+       allocateCachePage(buf, addr);
+   }
+   
+   return (SequentialFileHeader *)read(buf, addr, 0, sizeof(SequentialFileHeader));
+}
+
+int pHIncrementRecords(Buffer *buf, DiskAddress page) {
+   SequentialPageHeader *header = getSequentialPageHeader(buf, page);
+   if (!header)
+      return -1;
+
+   header->occupied++;
+   return 0;
+}
+
+int pHDecrementRecords(Buffer *buf, DiskAddress page) {
+   SequentialPageHeader *header = getSequentialPageHeader(buf, page);
+   if (!header)
+      return -1;
+
+   header->occupied--;
+   return 0;
+}
+
+int createSequentialFile(Buffer *buf, char *createTable, RecordDesc recordDesc, int volatileFlag) {
    tableDescription *table = parseCreate(createTable);
 
    SequentialFileHeader header;
@@ -44,10 +83,13 @@ int createSequentialFile(Buffer *buff, char *createTable, RecordDesc recordDesc,
       writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
       addPersistentFile(buf, fd);
    }
+   return 0;
 }
 
 //Go back and remove file descriptors from persistent/volatile list of fds
 //Do it in the heap file as well
+
+//Once volatile and persistent list functions are finished, update this function
 int deleteSequentialFile(Buffer *buf, char *tableName) {
    int fd = tfs_openFile(tableName);
    tfs_deleteFile(fd);
@@ -69,9 +111,17 @@ int deleteSequentialFile(Buffer *buf, char *tableName) {
          buf->numCacheOccupied--;
       }
    }
+   
+   if(checkPersistentFiles(buf, fd) >= 0) {
+       removeFileFromPersistentList(buf, fd);
+   } else {
+       removeFileFromVolatileList(buf, fd);
+   }
+   
+   return 0;
 }
 
-int seqHeaderGetRecordDesc(Buffer *buff, int fd, RecordDesc *recordDesc) {
+int seqHeaderGetRecordDesc(Buffer *buf, int fd, RecordDesc *recordDesc) {
    SequentialFileHeader *header = getSequentialFileHeader(buf, fd);
    if (!header)
       return -1;
@@ -96,7 +146,7 @@ int seqGetRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes) {
    if (seqHeaderGetRecordSize(buf, page.FD, &recordSize) < 0)
       return -1;
 
-   if (checkPersistentFiles(buf, page.FD) == 1)
+   if (checkPersistentFiles(buf, page.FD) >= 0)
       readPage(buf, page);
    else
       allocateCachePage(buf, page);
@@ -141,7 +191,7 @@ int seqPutRecord(Buffer *buf, DiskAddress page, char *bytes) {
     
     offset += padding;
     
-    if(checkPersistentFiles(buf, page.FD)) {
+    if(checkPersistentFiles(buf, page.FD) >= 0) {
         readPage(buf, page);
     } else {
         allocateCachePage(buf, page);
@@ -207,10 +257,10 @@ int seqPutRecord(Buffer *buf, DiskAddress page, char *bytes) {
         }
     }
     
-    pHGetMaxRecords(buf, page, &maxRecords)
+    pHGetMaxRecords(buf, page, &maxRecords);
     
     if(i + 2 < maxRecords) {
-       shiftRecords(buf, page, shiftIndex);
+       shiftRecordsTowardsEnd(buf, page, i);
        write(buf, page, PAGE_HDR_SIZE + i * recordSize, recordSize, bytes, recordSize);
        SequentialFileHeader *header =  getSequentialFileHeader(buf, page.FD);
        pHIncrementRecords(buf, page);
@@ -221,7 +271,46 @@ int seqPutRecord(Buffer *buf, DiskAddress page, char *bytes) {
     }
 }
 
-int shiftRecords(Buffer *buf, DiskAddress page, int shiftIndex) {
+//I'm assuming the first recordId will be record # 1
+int seqUpdateRecord(Buffer *buf, DiskAddress page, int recordId, char *record) {
+    int recordSize;
+    
+    sequentialHeaderGetRecordSize(buf, page.FD, &recordSize);
+    
+    write(buf, page, PAGE_HDR_SIZE + (recordId - 1) * recordSize, recordSize, record, recordSize);
+    return 0;
+}
+
+int shiftRecordsTowardsfront(Buffer *buf, DiskAddress page, int shiftIndex) {
+    int recordSize, numRecords, i;
+    char *curRecord, *nextRecord;
+    
+    sequentialHeaderGetRecordSize(buf, page.FD, &recordSize);
+    pHGetNumRecords(buf, page, &numRecords);
+    
+    if(numRecords == 1)
+        return 0;
+    
+    if(numRecords == 0)
+        return -1;
+
+    memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + ((numRecords - 1) * recordSize), recordSize), recordSize);
+    
+    for(i = numRecords - 1; i > shiftIndex; i--) {
+        memcpy(curRecord, nextRecord, recordSize);
+        memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + ((i - 1) * recordSize), recordSize), recordSize);
+        write(buf, page, PAGE_HDR_SIZE + (i - 1) * recordSize, recordSize, curRecord, recordSize);
+    }    
+    return 0;
+}
+
+int seqDeleteRecord(Buffer *buf, DiskAddress page, int recordId) {
+    shiftRecordsTowardsFront(buf, page, recordId);
+    pHDecrementRecords(buf, page);
+    return 0;
+}
+
+int shiftRecordsTowardsEnd(Buffer *buf, DiskAddress page, int shiftIndex) {
     int recordSize, numRecords, i;
     char *curRecord, *nextRecord;
     
@@ -229,17 +318,18 @@ int shiftRecords(Buffer *buf, DiskAddress page, int shiftIndex) {
     pHGetNumRecords(buf, page, &numRecords);
 
 
-    memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + (shiftIndex * recordSize), recordSize));
+    memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + (shiftIndex * recordSize), recordSize), recordSize);
     
     for(i = shiftIndex; i < numRecords; i++) {
         memcpy(curRecord, nextRecord, recordSize);
-        memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + ((i + 1) * recordSize), recordSize));
+        memcpy(nextRecord, read(buf, page, PAGE_HDR_SIZE + ((i + 1) * recordSize), recordSize), recordSize);
         write(buf, page, PAGE_HDR_SIZE + (i + 1) * recordSize, recordSize, curRecord, recordSize);
     }
     
     write(buf, page, PAGE_HDR_SIZE + i * recordSize, recordSize, nextRecord, recordSize);
-
+    return 0;
 }
+
 
 int seqHeaderGetIndexName(Buffer *buf, int fd, char *name) {
    SequentialFileHeader *header = getSequentialFileHeader(buf, fd);
@@ -259,30 +349,19 @@ int sequentialHeaderGetRecordSize(Buffer *buf, fileDescriptor fd, int *recordSiz
    return 0;
 }
 
-int pHIncrementRecords(Buffer *buf, DiskAddress page) {
-   SequentialPageHeader *header = getSequentialPageHeader(buf, page);
-   if (!header)
-      return -1;
-
-   header->occupied++;
-   return 0;
+int pHGetRecordSize(Buffer *buf, DiskAddress page) {
+    SequentialFileHeader *header = getSequentialFileHeader(buf, page.FD);
+    if(!header)
+        return -1;
+        
+        return header->recordSize;
 }
 
-SequentialPageHeader *getSequentialPageHeader(Buffer *buf, DiskAddress addr) {
-   readPage(buf, addr);
-   return (HeapPageHeader *)read(buf, addr, 0, sizeof(HeapPageHeader));
-}
-
-SequentialFileHeader *getSequentialFileHeader(Buffer *buf, fileDescriptor fd) {
-   DiskAddress addr;
-   addr.FD = fd;
-   addr.pageId = 0;
-
-   if(checkPersistentFiles(buf, fd)) {
-       readPage(buf, addr);
-   } else {
-       allocateCachePage(buf, addr);
-   }
-   
-   return (SequentialFileHeader *)read(buf, addr, 0, sizeof(SequentialFileHeader));
+int pHSetRecordSize(Buffer *buf, DiskAddress page, int recordSize) {
+    SequentialFileHeader *header = getSequentialFileHeader(buf, page.FD);
+    if(!header)
+        return -1;
+        
+    header->recordSize = recordSize;
+    return 0;
 }

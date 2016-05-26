@@ -1,0 +1,118 @@
+Create Tables
+
+
+create table actors(
+    id int Primary Key,
+    name text
+);
+
+create table producers(
+    id int Primary Key,
+    name text
+);
+
+create table genres(
+    id int Primary Key,
+    genre text
+);
+
+create table directors(
+    id int Primary Key,
+    name text
+);
+
+create table hosts(
+    id int Primary Key,
+    name text
+);
+
+create table matchup(
+    id int Primary Key,
+    home text,
+    away text
+);
+
+create table events(
+    id int Primary Key,
+    name text
+);
+
+create table anchors(
+    id int Primary Key,
+    name text
+);
+
+create table news(
+    id int Primary Key,
+    anchorID int,
+    type text,
+    foreign key(anchorID) references anchors
+);
+
+create table sports_events(
+    id int Primary Key,
+    eventID int,
+    matchupID int,
+    type text,
+    foreign key(eventID) references events
+    foreign key(matchupID) references matchups
+);
+
+create table tv_shows(
+    id int Primary Key,
+    hostID int,
+    type text,
+    foregin key(hostID) references hosts
+);
+
+create table sitcoms(
+    id int Primary Key,
+    directorID int,
+    type text,
+    foreign key(directorID) references directors
+);
+
+create table soap_operas(
+    id int Primary Key,
+    directorID int,
+    type text,
+    foreign key(directorID) references directors
+);
+
+create table movies(
+    id int Primary Key,
+    year int,
+    producerID int,
+    actorID int,
+    genreID int,
+    type text,
+    foreign key(producerID) references producer
+    foreign key(actorID) references actors
+    foreign key(genreID) references genres
+);
+
+create table others(
+    id int Primary Key,
+    type text
+);
+
+create table channels(
+    id int Primary Key,
+    quality text
+);
+
+create table programs(
+    id int Primary Key,
+    description text,
+    showID int,
+    foreign key(showID) references()
+);
+
+create table schedules(
+    id int Primary Key,
+    time time,
+    channelID int,
+    programID int,
+    foreign key(channelID) references channels,
+    foregin key(programID) references programs
+);

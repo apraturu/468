@@ -34,11 +34,14 @@ int createHeapFile(Buffer *buf, char *createTable) {
    if (table->isVolatile) {
       allocateCachePage(buf, addr);
       writeVolatile(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+      addVolatileFile(buf, fd);
    }
    else {
       readPage(buf, addr);
       writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+      addPersistentFile(buf, fd);
    }
+   return 0;
 }
 
 int deleteHeapFile(Buffer *buf, char *tableName) {
@@ -157,7 +160,7 @@ int getRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes) {
    if (heapHeaderGetRecordSize(buf, page.FD, &recordSize) < 0)
       return -1;
 
-   if (checkPersistentFiles(buf, page.FD) == 1)
+   if (checkPersistentFiles(buf, page.FD) >= 0)
       readPage(buf, page);
    else
       allocateCachePage(buf, page);
@@ -173,7 +176,7 @@ int putRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes) {
    if (heapHeaderGetRecordSize(buf, page.FD, &recordSize) < 0)
       return -1;
 
-   if (checkPersistentFiles(buf, page.FD) == 1)
+   if (checkPersistentFiles(buf, page.FD) >= 0)
       readPage(buf, page);
    else
       allocateCachePage(buf, page);
