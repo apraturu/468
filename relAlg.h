@@ -1,0 +1,32 @@
+#include <vector>
+#include "FLOPPYParser.h"
+#include "libTinyFS.h"
+
+using namespace std;
+
+struct Aggregate {
+   FLOPPYAggregateOperator op;
+   char *attr;
+
+   Aggregate(FLOPPYAggregateOperator op, char *attr) : op(op), attr(attr) {}
+};
+
+int selectScan(fileDescriptor inTable, FLOPPYNode *condition, fileDescriptor *outTable);
+int selectIndex(fileDescriptor inTable, FLOPPYNode *condition, fileDescriptor index, fileDescriptor *outTable);
+
+int project(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *outTable);
+
+int duplicateElimination(fileDescriptor inTable, fileDescriptor *outTable);
+
+int product(fileDescriptor inTable1, fileDescriptor inTable2, fileDescriptor *outTable);
+
+int joinOnePass(fileDescriptor inTable1, fileDescriptor inTable2, FLOPPYNode *condition, fileDescriptor *outTable);
+int joinMultiPass(fileDescriptor inTable1, fileDescriptor inTable2, FLOPPYNode *condition, fileDescriptor *outTable);
+int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2, FLOPPYNode *condition, fileDescriptor *outTable);
+
+int groupOnePass(fileDescriptor inTable, vector<char *> *group, vector<Aggregate> *aggregates, fileDescriptor *outTable);
+int groupMultiPass(fileDescriptor inTable, vector<char *> *group, vector<Aggregate> *aggregates, fileDescriptor *outTable);
+
+int sortTable(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *outTable);
+
+int limitTable(fileDescriptor inTable, int k, fileDescriptor *outTable);

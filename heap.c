@@ -41,7 +41,7 @@ int createHeapFile(Buffer *buf, char *createTable) {
       writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
       addPersistentFile(buf, fd);
    }
-   return 0;
+   return fd;
 }
 
 int deleteHeapFile(Buffer *buf, char *tableName) {
