@@ -39,7 +39,9 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
    header.recordSize = sizeOfRecordDesc(recordDesc);
 
    header.pageList = header.freeList = -1;
-
+   
+   header.numBlocks = header.numTuples = 0;
+   
    fileDescriptor fd = getFd(filename);
    DiskAddress addr;
 
@@ -167,6 +169,51 @@ int heapHeaderSetFreeSpace(Buffer *buf, fileDescriptor fd, int freePage) {
    addr.FD = fd;
    addr.pageId = 0;
    write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
+   return 0;
+}
+
+int heapHeaderGetNumBlocks(Buffer *buf, int fd, int *numBlocks) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+   
+   *numBlocks = header->numBlocks;
+   return 0;
+}
+
+int heapHeaderGetNumTuples(Buffer *buf, int fd, int *numTuples) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+      
+   *numTuples = header->numTuples;
+   return 0;
+}
+
+int heapHeaderIncrementNumBlocks(Buffer *buf, int fd) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+      
+   header->numBlocks++;
+   return 0;
+}
+
+int heapHeaderIncrementNumTuples(Buffer *buf, int fd) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+      
+   header->numTuples++;
+   return 0;
+}
+
+int heapHeaderDecrementNumTuples(Buffer *buf, int fd) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+   
+   header->numTuples--;
    return 0;
 }
 
