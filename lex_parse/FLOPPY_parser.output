@@ -1,0 +1,2595 @@
+Grammar
+
+    0 $accept: input $end
+
+    1 input: statement ';'
+
+    2 statement: create_table_statement
+    3          | drop_table_statement
+    4          | create_index_statement
+    5          | drop_index_statement
+    6          | insert_statement
+    7          | delete_statement
+    8          | update_statement
+    9          | select_statement
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list ')'
+
+   11 opt_volatile: VOLATILE opt_index_only
+   12             | %empty
+
+   13 opt_index_only: ',' INDEX ONLY opt_split
+   14               | %empty
+
+   15 opt_split: ',' SPLIT
+   16          | %empty
+
+   17 column_def_commalist: column_def
+   18                     | column_def_commalist ',' column_def
+
+   19 column_def: ID column_type opt_column_size
+
+   20 attribute_list: ID
+   21               | attribute_list ',' ID
+
+   22 primary_key: PRIMARY KEY '(' attribute_list ')'
+
+   23 opt_foreign_key_list: opt_foreign_key_list ',' foreign_key
+   24                     | %empty
+
+   25 foreign_key: FOREIGN KEY '(' attribute_list ')' REFERENCES ID
+
+   26 column_type: INT
+   27            | FLOAT
+   28            | VARCHAR
+   29            | DATETIME
+   30            | BOOLEAN
+
+   31 opt_column_size: '(' int_literal ')'
+   32                | %empty
+
+   33 int_literal: INTVAL
+
+   34 drop_table_statement: DROP TABLE ID
+
+   35 create_index_statement: CREATE INDEX ID ON ID '(' attribute_list ')'
+
+   36 drop_index_statement: DROP INDEX ID ON ID
+
+   37 insert_statement: INSERT INTO ID VALUES '(' value_list ')'
+
+   38 value_list: value
+   39           | value_list ',' value
+
+   40 value: constant
+   41      | TRUE
+   42      | FALSE
+
+   43 constant: INTVAL
+   44         | '-' INTVAL
+   45         | FLOATVAL
+   46         | STRING
+   47         | NULL
+
+   48 delete_statement: DELETE FROM ID WHERE condition
+
+   49 condition: atomic_condition
+   50          | condition AND condition
+   51          | NOT condition
+   52          | '(' condition ')'
+
+   53 atomic_condition: expression '<' expression
+   54                 | expression '>' expression
+   55                 | expression '=' expression
+   56                 | expression LE expression
+   57                 | expression GE expression
+   58                 | expression NE expression
+   59                 | TRUE
+   60                 | FALSE
+
+   61 expression: atomic_expression
+   62           | expression '+' expression
+   63           | expression '-' expression
+   64           | expression '*' expression
+   65           | expression '/' expression
+   66           | expression MOD expression
+   67           | '(' expression ')'
+
+   68 atomic_expression: ID
+   69                  | constant
+   70                  | MIN '(' ID ')'
+   71                  | MAX '(' ID ')'
+   72                  | SUM '(' ID ')'
+   73                  | AVERAGE '(' ID ')'
+   74                  | COUNT '(' ID ')'
+   75                  | COUNT '(' '*' ')'
+
+   76 update_statement: UPDATE ID SET ID '=' expression WHERE condition
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list opt_where opt_group_by opt_order_by opt_limit
+
+   78 star_or_select_item_list: '*'
+   79                         | select_item_list
+
+   80 select_item_list: select_item
+   81                 | select_item_list ',' select_item
+
+   82 select_item: ID
+   83            | ID '.' ID
+   84            | COUNT '(' ID ')'
+   85            | AVERAGE '(' ID ')'
+   86            | MAX '(' ID ')'
+   87            | MIN '(' ID ')'
+   88            | SUM '(' ID ')'
+   89            | COUNT '(' '*' ')'
+
+   90 table_spec_list: table_spec
+   91                | table_spec_list ',' table_spec
+
+   92 table_spec: ID
+   93           | ID ID
+   94           | ID AS ID
+
+   95 opt_distinct: DISTINCT
+   96             | %empty
+
+   97 opt_where: WHERE condition
+   98          | %empty
+
+   99 opt_group_by: GROUP BY attribute_list opt_having
+  100             | %empty
+
+  101 opt_having: HAVING condition
+  102           | %empty
+
+  103 opt_order_by: ORDER BY attribute_list
+  104             | %empty
+
+  105 opt_limit: LIMIT INTVAL
+  106          | %empty
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+'(' (40) 10 22 25 31 35 37 52 67 70 71 72 73 74 75 84 85 86 87 88 89
+')' (41) 10 22 25 31 35 37 52 67 70 71 72 73 74 75 84 85 86 87 88 89
+'*' (42) 64 75 78 89
+'+' (43) 62
+',' (44) 10 13 15 18 21 23 39 81 91
+'-' (45) 44 63
+'.' (46) 83
+'/' (47) 65
+';' (59) 1
+'<' (60) 53
+'=' (61) 55 76
+'>' (62) 54
+error (256)
+INTVAL (258) 33 43 44 105
+FLOATVAL (259) 45
+ID (260) 10 19 20 21 25 34 35 36 37 48 68 70 71 72 73 74 76 82 83 84
+    85 86 87 88 92 93 94
+STRING (261) 46
+CREATE (262) 10 35
+TABLE (263) 10 34
+VOLATILE (264) 11
+PRIMARY (265) 22
+FOREIGN (266) 25
+KEY (267) 22 25
+REFERENCES (268) 25
+INDEX (269) 13 35 36
+ONLY (270) 13
+SPLIT (271) 15
+DROP (272) 34 36
+ON (273) 35 36
+INTO (274) 37
+VALUES (275) 37
+DELETE (276) 48
+INSERT (277) 37
+SELECT (278) 77
+FROM (279) 48 77
+WHERE (280) 48 76 97
+UPDATE (281) 76
+SET (282) 76
+GROUP (283) 99
+BY (284) 99 103
+HAVING (285) 101
+ORDER (286) 103
+LIMIT (287) 105
+DISTINCT (288) 95
+COUNT (289) 74 75 84 89
+AVERAGE (290) 73 85
+MAX (291) 71 86
+MIN (292) 70 87
+SUM (293) 72 88
+NULL (294) 47
+AS (295) 94
+NOT (296) 51
+MOD (297) 66
+LE (298) 56
+GE (299) 57
+NE (300) 58
+TRUE (301) 41 59
+FALSE (302) 42 60
+AND (303) 50
+INT (304) 26
+FLOAT (305) 27
+BOOLEAN (306) 30
+DATETIME (307) 29
+VARCHAR (308) 28
+
+
+Nonterminals, with rules where they appear
+
+$accept (66)
+    on left: 0
+input (67)
+    on left: 1, on right: 0
+statement (68)
+    on left: 2 3 4 5 6 7 8 9, on right: 1
+create_table_statement (69)
+    on left: 10, on right: 2
+opt_volatile (70)
+    on left: 11 12, on right: 10
+opt_index_only (71)
+    on left: 13 14, on right: 11
+opt_split (72)
+    on left: 15 16, on right: 13
+column_def_commalist (73)
+    on left: 17 18, on right: 10 18
+column_def (74)
+    on left: 19, on right: 17 18
+attribute_list (75)
+    on left: 20 21, on right: 21 22 25 35 99 103
+primary_key (76)
+    on left: 22, on right: 10
+opt_foreign_key_list (77)
+    on left: 23 24, on right: 10 23
+foreign_key (78)
+    on left: 25, on right: 23
+column_type (79)
+    on left: 26 27 28 29 30, on right: 19
+opt_column_size (80)
+    on left: 31 32, on right: 19
+int_literal (81)
+    on left: 33, on right: 31
+drop_table_statement (82)
+    on left: 34, on right: 3
+create_index_statement (83)
+    on left: 35, on right: 4
+drop_index_statement (84)
+    on left: 36, on right: 5
+insert_statement (85)
+    on left: 37, on right: 6
+value_list (86)
+    on left: 38 39, on right: 37 39
+value (87)
+    on left: 40 41 42, on right: 38 39
+constant (88)
+    on left: 43 44 45 46 47, on right: 40 69
+delete_statement (89)
+    on left: 48, on right: 7
+condition (90)
+    on left: 49 50 51 52, on right: 48 50 51 52 76 97 101
+atomic_condition (91)
+    on left: 53 54 55 56 57 58 59 60, on right: 49
+expression (92)
+    on left: 61 62 63 64 65 66 67, on right: 53 54 55 56 57 58 62 63
+    64 65 66 67 76
+atomic_expression (93)
+    on left: 68 69 70 71 72 73 74 75, on right: 61
+update_statement (94)
+    on left: 76, on right: 8
+select_statement (95)
+    on left: 77, on right: 9
+star_or_select_item_list (96)
+    on left: 78 79, on right: 77
+select_item_list (97)
+    on left: 80 81, on right: 79 81
+select_item (98)
+    on left: 82 83 84 85 86 87 88 89, on right: 80 81
+table_spec_list (99)
+    on left: 90 91, on right: 77 91
+table_spec (100)
+    on left: 92 93 94, on right: 90 91
+opt_distinct (101)
+    on left: 95 96, on right: 77
+opt_where (102)
+    on left: 97 98, on right: 77
+opt_group_by (103)
+    on left: 99 100, on right: 77
+opt_having (104)
+    on left: 101 102, on right: 99
+opt_order_by (105)
+    on left: 103 104, on right: 77
+opt_limit (106)
+    on left: 105 106, on right: 77
+
+
+State 0
+
+    0 $accept: . input $end
+
+    CREATE  shift, and go to state 1
+    DROP    shift, and go to state 2
+    DELETE  shift, and go to state 3
+    INSERT  shift, and go to state 4
+    SELECT  shift, and go to state 5
+    UPDATE  shift, and go to state 6
+
+    input                   go to state 7
+    statement               go to state 8
+    create_table_statement  go to state 9
+    drop_table_statement    go to state 10
+    create_index_statement  go to state 11
+    drop_index_statement    go to state 12
+    insert_statement        go to state 13
+    delete_statement        go to state 14
+    update_statement        go to state 15
+    select_statement        go to state 16
+
+
+State 1
+
+   10 create_table_statement: CREATE . TABLE ID opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list ')'
+   35 create_index_statement: CREATE . INDEX ID ON ID '(' attribute_list ')'
+
+    TABLE  shift, and go to state 17
+    INDEX  shift, and go to state 18
+
+
+State 2
+
+   34 drop_table_statement: DROP . TABLE ID
+   36 drop_index_statement: DROP . INDEX ID ON ID
+
+    TABLE  shift, and go to state 19
+    INDEX  shift, and go to state 20
+
+
+State 3
+
+   48 delete_statement: DELETE . FROM ID WHERE condition
+
+    FROM  shift, and go to state 21
+
+
+State 4
+
+   37 insert_statement: INSERT . INTO ID VALUES '(' value_list ')'
+
+    INTO  shift, and go to state 22
+
+
+State 5
+
+   77 select_statement: SELECT . opt_distinct star_or_select_item_list FROM table_spec_list opt_where opt_group_by opt_order_by opt_limit
+
+    DISTINCT  shift, and go to state 23
+
+    $default  reduce using rule 96 (opt_distinct)
+
+    opt_distinct  go to state 24
+
+
+State 6
+
+   76 update_statement: UPDATE . ID SET ID '=' expression WHERE condition
+
+    ID  shift, and go to state 25
+
+
+State 7
+
+    0 $accept: input . $end
+
+    $end  shift, and go to state 26
+
+
+State 8
+
+    1 input: statement . ';'
+
+    ';'  shift, and go to state 27
+
+
+State 9
+
+    2 statement: create_table_statement .
+
+    $default  reduce using rule 2 (statement)
+
+
+State 10
+
+    3 statement: drop_table_statement .
+
+    $default  reduce using rule 3 (statement)
+
+
+State 11
+
+    4 statement: create_index_statement .
+
+    $default  reduce using rule 4 (statement)
+
+
+State 12
+
+    5 statement: drop_index_statement .
+
+    $default  reduce using rule 5 (statement)
+
+
+State 13
+
+    6 statement: insert_statement .
+
+    $default  reduce using rule 6 (statement)
+
+
+State 14
+
+    7 statement: delete_statement .
+
+    $default  reduce using rule 7 (statement)
+
+
+State 15
+
+    8 statement: update_statement .
+
+    $default  reduce using rule 8 (statement)
+
+
+State 16
+
+    9 statement: select_statement .
+
+    $default  reduce using rule 9 (statement)
+
+
+State 17
+
+   10 create_table_statement: CREATE TABLE . ID opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list ')'
+
+    ID  shift, and go to state 28
+
+
+State 18
+
+   35 create_index_statement: CREATE INDEX . ID ON ID '(' attribute_list ')'
+
+    ID  shift, and go to state 29
+
+
+State 19
+
+   34 drop_table_statement: DROP TABLE . ID
+
+    ID  shift, and go to state 30
+
+
+State 20
+
+   36 drop_index_statement: DROP INDEX . ID ON ID
+
+    ID  shift, and go to state 31
+
+
+State 21
+
+   48 delete_statement: DELETE FROM . ID WHERE condition
+
+    ID  shift, and go to state 32
+
+
+State 22
+
+   37 insert_statement: INSERT INTO . ID VALUES '(' value_list ')'
+
+    ID  shift, and go to state 33
+
+
+State 23
+
+   95 opt_distinct: DISTINCT .
+
+    $default  reduce using rule 95 (opt_distinct)
+
+
+State 24
+
+   77 select_statement: SELECT opt_distinct . star_or_select_item_list FROM table_spec_list opt_where opt_group_by opt_order_by opt_limit
+
+    ID       shift, and go to state 34
+    COUNT    shift, and go to state 35
+    AVERAGE  shift, and go to state 36
+    MAX      shift, and go to state 37
+    MIN      shift, and go to state 38
+    SUM      shift, and go to state 39
+    '*'      shift, and go to state 40
+
+    star_or_select_item_list  go to state 41
+    select_item_list          go to state 42
+    select_item               go to state 43
+
+
+State 25
+
+   76 update_statement: UPDATE ID . SET ID '=' expression WHERE condition
+
+    SET  shift, and go to state 44
+
+
+State 26
+
+    0 $accept: input $end .
+
+    $default  accept
+
+
+State 27
+
+    1 input: statement ';' .
+
+    $default  reduce using rule 1 (input)
+
+
+State 28
+
+   10 create_table_statement: CREATE TABLE ID . opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list ')'
+
+    VOLATILE  shift, and go to state 45
+
+    $default  reduce using rule 12 (opt_volatile)
+
+    opt_volatile  go to state 46
+
+
+State 29
+
+   35 create_index_statement: CREATE INDEX ID . ON ID '(' attribute_list ')'
+
+    ON  shift, and go to state 47
+
+
+State 30
+
+   34 drop_table_statement: DROP TABLE ID .
+
+    $default  reduce using rule 34 (drop_table_statement)
+
+
+State 31
+
+   36 drop_index_statement: DROP INDEX ID . ON ID
+
+    ON  shift, and go to state 48
+
+
+State 32
+
+   48 delete_statement: DELETE FROM ID . WHERE condition
+
+    WHERE  shift, and go to state 49
+
+
+State 33
+
+   37 insert_statement: INSERT INTO ID . VALUES '(' value_list ')'
+
+    VALUES  shift, and go to state 50
+
+
+State 34
+
+   82 select_item: ID .
+   83            | ID . '.' ID
+
+    '.'  shift, and go to state 51
+
+    $default  reduce using rule 82 (select_item)
+
+
+State 35
+
+   84 select_item: COUNT . '(' ID ')'
+   89            | COUNT . '(' '*' ')'
+
+    '('  shift, and go to state 52
+
+
+State 36
+
+   85 select_item: AVERAGE . '(' ID ')'
+
+    '('  shift, and go to state 53
+
+
+State 37
+
+   86 select_item: MAX . '(' ID ')'
+
+    '('  shift, and go to state 54
+
+
+State 38
+
+   87 select_item: MIN . '(' ID ')'
+
+    '('  shift, and go to state 55
+
+
+State 39
+
+   88 select_item: SUM . '(' ID ')'
+
+    '('  shift, and go to state 56
+
+
+State 40
+
+   78 star_or_select_item_list: '*' .
+
+    $default  reduce using rule 78 (star_or_select_item_list)
+
+
+State 41
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list . FROM table_spec_list opt_where opt_group_by opt_order_by opt_limit
+
+    FROM  shift, and go to state 57
+
+
+State 42
+
+   79 star_or_select_item_list: select_item_list .
+   81 select_item_list: select_item_list . ',' select_item
+
+    ','  shift, and go to state 58
+
+    $default  reduce using rule 79 (star_or_select_item_list)
+
+
+State 43
+
+   80 select_item_list: select_item .
+
+    $default  reduce using rule 80 (select_item_list)
+
+
+State 44
+
+   76 update_statement: UPDATE ID SET . ID '=' expression WHERE condition
+
+    ID  shift, and go to state 59
+
+
+State 45
+
+   11 opt_volatile: VOLATILE . opt_index_only
+
+    ','  shift, and go to state 60
+
+    $default  reduce using rule 14 (opt_index_only)
+
+    opt_index_only  go to state 61
+
+
+State 46
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile . '(' column_def_commalist ',' primary_key opt_foreign_key_list ')'
+
+    '('  shift, and go to state 62
+
+
+State 47
+
+   35 create_index_statement: CREATE INDEX ID ON . ID '(' attribute_list ')'
+
+    ID  shift, and go to state 63
+
+
+State 48
+
+   36 drop_index_statement: DROP INDEX ID ON . ID
+
+    ID  shift, and go to state 64
+
+
+State 49
+
+   48 delete_statement: DELETE FROM ID WHERE . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 81
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 50
+
+   37 insert_statement: INSERT INTO ID VALUES . '(' value_list ')'
+
+    '('  shift, and go to state 85
+
+
+State 51
+
+   83 select_item: ID '.' . ID
+
+    ID  shift, and go to state 86
+
+
+State 52
+
+   84 select_item: COUNT '(' . ID ')'
+   89            | COUNT '(' . '*' ')'
+
+    ID   shift, and go to state 87
+    '*'  shift, and go to state 88
+
+
+State 53
+
+   85 select_item: AVERAGE '(' . ID ')'
+
+    ID  shift, and go to state 89
+
+
+State 54
+
+   86 select_item: MAX '(' . ID ')'
+
+    ID  shift, and go to state 90
+
+
+State 55
+
+   87 select_item: MIN '(' . ID ')'
+
+    ID  shift, and go to state 91
+
+
+State 56
+
+   88 select_item: SUM '(' . ID ')'
+
+    ID  shift, and go to state 92
+
+
+State 57
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM . table_spec_list opt_where opt_group_by opt_order_by opt_limit
+
+    ID  shift, and go to state 93
+
+    table_spec_list  go to state 94
+    table_spec       go to state 95
+
+
+State 58
+
+   81 select_item_list: select_item_list ',' . select_item
+
+    ID       shift, and go to state 34
+    COUNT    shift, and go to state 35
+    AVERAGE  shift, and go to state 36
+    MAX      shift, and go to state 37
+    MIN      shift, and go to state 38
+    SUM      shift, and go to state 39
+
+    select_item  go to state 96
+
+
+State 59
+
+   76 update_statement: UPDATE ID SET ID . '=' expression WHERE condition
+
+    '='  shift, and go to state 97
+
+
+State 60
+
+   13 opt_index_only: ',' . INDEX ONLY opt_split
+
+    INDEX  shift, and go to state 98
+
+
+State 61
+
+   11 opt_volatile: VOLATILE opt_index_only .
+
+    $default  reduce using rule 11 (opt_volatile)
+
+
+State 62
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' . column_def_commalist ',' primary_key opt_foreign_key_list ')'
+
+    ID  shift, and go to state 99
+
+    column_def_commalist  go to state 100
+    column_def            go to state 101
+
+
+State 63
+
+   35 create_index_statement: CREATE INDEX ID ON ID . '(' attribute_list ')'
+
+    '('  shift, and go to state 102
+
+
+State 64
+
+   36 drop_index_statement: DROP INDEX ID ON ID .
+
+    $default  reduce using rule 36 (drop_index_statement)
+
+
+State 65
+
+   43 constant: INTVAL .
+
+    $default  reduce using rule 43 (constant)
+
+
+State 66
+
+   45 constant: FLOATVAL .
+
+    $default  reduce using rule 45 (constant)
+
+
+State 67
+
+   68 atomic_expression: ID .
+
+    $default  reduce using rule 68 (atomic_expression)
+
+
+State 68
+
+   46 constant: STRING .
+
+    $default  reduce using rule 46 (constant)
+
+
+State 69
+
+   74 atomic_expression: COUNT . '(' ID ')'
+   75                  | COUNT . '(' '*' ')'
+
+    '('  shift, and go to state 103
+
+
+State 70
+
+   73 atomic_expression: AVERAGE . '(' ID ')'
+
+    '('  shift, and go to state 104
+
+
+State 71
+
+   71 atomic_expression: MAX . '(' ID ')'
+
+    '('  shift, and go to state 105
+
+
+State 72
+
+   70 atomic_expression: MIN . '(' ID ')'
+
+    '('  shift, and go to state 106
+
+
+State 73
+
+   72 atomic_expression: SUM . '(' ID ')'
+
+    '('  shift, and go to state 107
+
+
+State 74
+
+   47 constant: NULL .
+
+    $default  reduce using rule 47 (constant)
+
+
+State 75
+
+   51 condition: NOT . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 108
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 76
+
+   59 atomic_condition: TRUE .
+
+    $default  reduce using rule 59 (atomic_condition)
+
+
+State 77
+
+   60 atomic_condition: FALSE .
+
+    $default  reduce using rule 60 (atomic_condition)
+
+
+State 78
+
+   44 constant: '-' . INTVAL
+
+    INTVAL  shift, and go to state 109
+
+
+State 79
+
+   52 condition: '(' . condition ')'
+   67 expression: '(' . expression ')'
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 110
+    atomic_condition   go to state 82
+    expression         go to state 111
+    atomic_expression  go to state 84
+
+
+State 80
+
+   69 atomic_expression: constant .
+
+    $default  reduce using rule 69 (atomic_expression)
+
+
+State 81
+
+   48 delete_statement: DELETE FROM ID WHERE condition .
+   50 condition: condition . AND condition
+
+    AND  shift, and go to state 112
+
+    $default  reduce using rule 48 (delete_statement)
+
+
+State 82
+
+   49 condition: atomic_condition .
+
+    $default  reduce using rule 49 (condition)
+
+
+State 83
+
+   53 atomic_condition: expression . '<' expression
+   54                 | expression . '>' expression
+   55                 | expression . '=' expression
+   56                 | expression . LE expression
+   57                 | expression . GE expression
+   58                 | expression . NE expression
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    LE   shift, and go to state 114
+    GE   shift, and go to state 115
+    NE   shift, and go to state 116
+    '='  shift, and go to state 117
+    '>'  shift, and go to state 118
+    '<'  shift, and go to state 119
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+
+State 84
+
+   61 expression: atomic_expression .
+
+    $default  reduce using rule 61 (expression)
+
+
+State 85
+
+   37 insert_statement: INSERT INTO ID VALUES '(' . value_list ')'
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    STRING    shift, and go to state 68
+    NULL      shift, and go to state 74
+    TRUE      shift, and go to state 124
+    FALSE     shift, and go to state 125
+    '-'       shift, and go to state 78
+
+    value_list  go to state 126
+    value       go to state 127
+    constant    go to state 128
+
+
+State 86
+
+   83 select_item: ID '.' ID .
+
+    $default  reduce using rule 83 (select_item)
+
+
+State 87
+
+   84 select_item: COUNT '(' ID . ')'
+
+    ')'  shift, and go to state 129
+
+
+State 88
+
+   89 select_item: COUNT '(' '*' . ')'
+
+    ')'  shift, and go to state 130
+
+
+State 89
+
+   85 select_item: AVERAGE '(' ID . ')'
+
+    ')'  shift, and go to state 131
+
+
+State 90
+
+   86 select_item: MAX '(' ID . ')'
+
+    ')'  shift, and go to state 132
+
+
+State 91
+
+   87 select_item: MIN '(' ID . ')'
+
+    ')'  shift, and go to state 133
+
+
+State 92
+
+   88 select_item: SUM '(' ID . ')'
+
+    ')'  shift, and go to state 134
+
+
+State 93
+
+   92 table_spec: ID .
+   93           | ID . ID
+   94           | ID . AS ID
+
+    ID  shift, and go to state 135
+    AS  shift, and go to state 136
+
+    $default  reduce using rule 92 (table_spec)
+
+
+State 94
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list . opt_where opt_group_by opt_order_by opt_limit
+   91 table_spec_list: table_spec_list . ',' table_spec
+
+    WHERE  shift, and go to state 137
+    ','    shift, and go to state 138
+
+    $default  reduce using rule 98 (opt_where)
+
+    opt_where  go to state 139
+
+
+State 95
+
+   90 table_spec_list: table_spec .
+
+    $default  reduce using rule 90 (table_spec_list)
+
+
+State 96
+
+   81 select_item_list: select_item_list ',' select_item .
+
+    $default  reduce using rule 81 (select_item_list)
+
+
+State 97
+
+   76 update_statement: UPDATE ID SET ID '=' . expression WHERE condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 141
+    atomic_expression  go to state 84
+
+
+State 98
+
+   13 opt_index_only: ',' INDEX . ONLY opt_split
+
+    ONLY  shift, and go to state 142
+
+
+State 99
+
+   19 column_def: ID . column_type opt_column_size
+
+    INT       shift, and go to state 143
+    FLOAT     shift, and go to state 144
+    BOOLEAN   shift, and go to state 145
+    DATETIME  shift, and go to state 146
+    VARCHAR   shift, and go to state 147
+
+    column_type  go to state 148
+
+
+State 100
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist . ',' primary_key opt_foreign_key_list ')'
+   18 column_def_commalist: column_def_commalist . ',' column_def
+
+    ','  shift, and go to state 149
+
+
+State 101
+
+   17 column_def_commalist: column_def .
+
+    $default  reduce using rule 17 (column_def_commalist)
+
+
+State 102
+
+   35 create_index_statement: CREATE INDEX ID ON ID '(' . attribute_list ')'
+
+    ID  shift, and go to state 150
+
+    attribute_list  go to state 151
+
+
+State 103
+
+   74 atomic_expression: COUNT '(' . ID ')'
+   75                  | COUNT '(' . '*' ')'
+
+    ID   shift, and go to state 152
+    '*'  shift, and go to state 153
+
+
+State 104
+
+   73 atomic_expression: AVERAGE '(' . ID ')'
+
+    ID  shift, and go to state 154
+
+
+State 105
+
+   71 atomic_expression: MAX '(' . ID ')'
+
+    ID  shift, and go to state 155
+
+
+State 106
+
+   70 atomic_expression: MIN '(' . ID ')'
+
+    ID  shift, and go to state 156
+
+
+State 107
+
+   72 atomic_expression: SUM '(' . ID ')'
+
+    ID  shift, and go to state 157
+
+
+State 108
+
+   50 condition: condition . AND condition
+   51          | NOT condition .
+
+    $default  reduce using rule 51 (condition)
+
+
+State 109
+
+   44 constant: '-' INTVAL .
+
+    $default  reduce using rule 44 (constant)
+
+
+State 110
+
+   50 condition: condition . AND condition
+   52          | '(' condition . ')'
+
+    AND  shift, and go to state 112
+    ')'  shift, and go to state 158
+
+
+State 111
+
+   53 atomic_condition: expression . '<' expression
+   54                 | expression . '>' expression
+   55                 | expression . '=' expression
+   56                 | expression . LE expression
+   57                 | expression . GE expression
+   58                 | expression . NE expression
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+   67           | '(' expression . ')'
+
+    MOD  shift, and go to state 113
+    LE   shift, and go to state 114
+    GE   shift, and go to state 115
+    NE   shift, and go to state 116
+    '='  shift, and go to state 117
+    '>'  shift, and go to state 118
+    '<'  shift, and go to state 119
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+    ')'  shift, and go to state 159
+
+
+State 112
+
+   50 condition: condition AND . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 160
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 113
+
+   66 expression: expression MOD . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 161
+    atomic_expression  go to state 84
+
+
+State 114
+
+   56 atomic_condition: expression LE . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 162
+    atomic_expression  go to state 84
+
+
+State 115
+
+   57 atomic_condition: expression GE . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 163
+    atomic_expression  go to state 84
+
+
+State 116
+
+   58 atomic_condition: expression NE . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 164
+    atomic_expression  go to state 84
+
+
+State 117
+
+   55 atomic_condition: expression '=' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 165
+    atomic_expression  go to state 84
+
+
+State 118
+
+   54 atomic_condition: expression '>' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 166
+    atomic_expression  go to state 84
+
+
+State 119
+
+   53 atomic_condition: expression '<' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 167
+    atomic_expression  go to state 84
+
+
+State 120
+
+   62 expression: expression '+' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 168
+    atomic_expression  go to state 84
+
+
+State 121
+
+   63 expression: expression '-' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 169
+    atomic_expression  go to state 84
+
+
+State 122
+
+   64 expression: expression '*' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 170
+    atomic_expression  go to state 84
+
+
+State 123
+
+   65 expression: expression '/' . expression
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 171
+    atomic_expression  go to state 84
+
+
+State 124
+
+   41 value: TRUE .
+
+    $default  reduce using rule 41 (value)
+
+
+State 125
+
+   42 value: FALSE .
+
+    $default  reduce using rule 42 (value)
+
+
+State 126
+
+   37 insert_statement: INSERT INTO ID VALUES '(' value_list . ')'
+   39 value_list: value_list . ',' value
+
+    ')'  shift, and go to state 172
+    ','  shift, and go to state 173
+
+
+State 127
+
+   38 value_list: value .
+
+    $default  reduce using rule 38 (value_list)
+
+
+State 128
+
+   40 value: constant .
+
+    $default  reduce using rule 40 (value)
+
+
+State 129
+
+   84 select_item: COUNT '(' ID ')' .
+
+    $default  reduce using rule 84 (select_item)
+
+
+State 130
+
+   89 select_item: COUNT '(' '*' ')' .
+
+    $default  reduce using rule 89 (select_item)
+
+
+State 131
+
+   85 select_item: AVERAGE '(' ID ')' .
+
+    $default  reduce using rule 85 (select_item)
+
+
+State 132
+
+   86 select_item: MAX '(' ID ')' .
+
+    $default  reduce using rule 86 (select_item)
+
+
+State 133
+
+   87 select_item: MIN '(' ID ')' .
+
+    $default  reduce using rule 87 (select_item)
+
+
+State 134
+
+   88 select_item: SUM '(' ID ')' .
+
+    $default  reduce using rule 88 (select_item)
+
+
+State 135
+
+   93 table_spec: ID ID .
+
+    $default  reduce using rule 93 (table_spec)
+
+
+State 136
+
+   94 table_spec: ID AS . ID
+
+    ID  shift, and go to state 174
+
+
+State 137
+
+   97 opt_where: WHERE . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 175
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 138
+
+   91 table_spec_list: table_spec_list ',' . table_spec
+
+    ID  shift, and go to state 93
+
+    table_spec  go to state 176
+
+
+State 139
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list opt_where . opt_group_by opt_order_by opt_limit
+
+    GROUP  shift, and go to state 177
+
+    $default  reduce using rule 100 (opt_group_by)
+
+    opt_group_by  go to state 178
+
+
+State 140
+
+   67 expression: '(' . expression ')'
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 140
+
+    constant           go to state 80
+    expression         go to state 179
+    atomic_expression  go to state 84
+
+
+State 141
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+   76 update_statement: UPDATE ID SET ID '=' expression . WHERE condition
+
+    WHERE  shift, and go to state 180
+    MOD    shift, and go to state 113
+    '+'    shift, and go to state 120
+    '-'    shift, and go to state 121
+    '*'    shift, and go to state 122
+    '/'    shift, and go to state 123
+
+
+State 142
+
+   13 opt_index_only: ',' INDEX ONLY . opt_split
+
+    ','  shift, and go to state 181
+
+    $default  reduce using rule 16 (opt_split)
+
+    opt_split  go to state 182
+
+
+State 143
+
+   26 column_type: INT .
+
+    $default  reduce using rule 26 (column_type)
+
+
+State 144
+
+   27 column_type: FLOAT .
+
+    $default  reduce using rule 27 (column_type)
+
+
+State 145
+
+   30 column_type: BOOLEAN .
+
+    $default  reduce using rule 30 (column_type)
+
+
+State 146
+
+   29 column_type: DATETIME .
+
+    $default  reduce using rule 29 (column_type)
+
+
+State 147
+
+   28 column_type: VARCHAR .
+
+    $default  reduce using rule 28 (column_type)
+
+
+State 148
+
+   19 column_def: ID column_type . opt_column_size
+
+    '('  shift, and go to state 183
+
+    $default  reduce using rule 32 (opt_column_size)
+
+    opt_column_size  go to state 184
+
+
+State 149
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist ',' . primary_key opt_foreign_key_list ')'
+   18 column_def_commalist: column_def_commalist ',' . column_def
+
+    ID       shift, and go to state 99
+    PRIMARY  shift, and go to state 185
+
+    column_def   go to state 186
+    primary_key  go to state 187
+
+
+State 150
+
+   20 attribute_list: ID .
+
+    $default  reduce using rule 20 (attribute_list)
+
+
+State 151
+
+   21 attribute_list: attribute_list . ',' ID
+   35 create_index_statement: CREATE INDEX ID ON ID '(' attribute_list . ')'
+
+    ')'  shift, and go to state 188
+    ','  shift, and go to state 189
+
+
+State 152
+
+   74 atomic_expression: COUNT '(' ID . ')'
+
+    ')'  shift, and go to state 190
+
+
+State 153
+
+   75 atomic_expression: COUNT '(' '*' . ')'
+
+    ')'  shift, and go to state 191
+
+
+State 154
+
+   73 atomic_expression: AVERAGE '(' ID . ')'
+
+    ')'  shift, and go to state 192
+
+
+State 155
+
+   71 atomic_expression: MAX '(' ID . ')'
+
+    ')'  shift, and go to state 193
+
+
+State 156
+
+   70 atomic_expression: MIN '(' ID . ')'
+
+    ')'  shift, and go to state 194
+
+
+State 157
+
+   72 atomic_expression: SUM '(' ID . ')'
+
+    ')'  shift, and go to state 195
+
+
+State 158
+
+   52 condition: '(' condition ')' .
+
+    $default  reduce using rule 52 (condition)
+
+
+State 159
+
+   67 expression: '(' expression ')' .
+
+    $default  reduce using rule 67 (expression)
+
+
+State 160
+
+   50 condition: condition . AND condition
+   50          | condition AND condition .
+
+    $default  reduce using rule 50 (condition)
+
+
+State 161
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+   66           | expression MOD expression .
+
+    $default  reduce using rule 66 (expression)
+
+
+State 162
+
+   56 atomic_condition: expression LE expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 56 (atomic_condition)
+
+
+State 163
+
+   57 atomic_condition: expression GE expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 57 (atomic_condition)
+
+
+State 164
+
+   58 atomic_condition: expression NE expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 58 (atomic_condition)
+
+
+State 165
+
+   55 atomic_condition: expression '=' expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 55 (atomic_condition)
+
+
+State 166
+
+   54 atomic_condition: expression '>' expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 54 (atomic_condition)
+
+
+State 167
+
+   53 atomic_condition: expression '<' expression .
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 53 (atomic_condition)
+
+
+State 168
+
+   62 expression: expression . '+' expression
+   62           | expression '+' expression .
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 62 (expression)
+
+
+State 169
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   63           | expression '-' expression .
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    MOD  shift, and go to state 113
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+
+    $default  reduce using rule 63 (expression)
+
+
+State 170
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   64           | expression '*' expression .
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+
+    $default  reduce using rule 64 (expression)
+
+
+State 171
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   65           | expression '/' expression .
+   66           | expression . MOD expression
+
+    $default  reduce using rule 65 (expression)
+
+
+State 172
+
+   37 insert_statement: INSERT INTO ID VALUES '(' value_list ')' .
+
+    $default  reduce using rule 37 (insert_statement)
+
+
+State 173
+
+   39 value_list: value_list ',' . value
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    STRING    shift, and go to state 68
+    NULL      shift, and go to state 74
+    TRUE      shift, and go to state 124
+    FALSE     shift, and go to state 125
+    '-'       shift, and go to state 78
+
+    value     go to state 196
+    constant  go to state 128
+
+
+State 174
+
+   94 table_spec: ID AS ID .
+
+    $default  reduce using rule 94 (table_spec)
+
+
+State 175
+
+   50 condition: condition . AND condition
+   97 opt_where: WHERE condition .
+
+    AND  shift, and go to state 112
+
+    $default  reduce using rule 97 (opt_where)
+
+
+State 176
+
+   91 table_spec_list: table_spec_list ',' table_spec .
+
+    $default  reduce using rule 91 (table_spec_list)
+
+
+State 177
+
+   99 opt_group_by: GROUP . BY attribute_list opt_having
+
+    BY  shift, and go to state 197
+
+
+State 178
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list opt_where opt_group_by . opt_order_by opt_limit
+
+    ORDER  shift, and go to state 198
+
+    $default  reduce using rule 104 (opt_order_by)
+
+    opt_order_by  go to state 199
+
+
+State 179
+
+   62 expression: expression . '+' expression
+   63           | expression . '-' expression
+   64           | expression . '*' expression
+   65           | expression . '/' expression
+   66           | expression . MOD expression
+   67           | '(' expression . ')'
+
+    MOD  shift, and go to state 113
+    '+'  shift, and go to state 120
+    '-'  shift, and go to state 121
+    '*'  shift, and go to state 122
+    '/'  shift, and go to state 123
+    ')'  shift, and go to state 159
+
+
+State 180
+
+   76 update_statement: UPDATE ID SET ID '=' expression WHERE . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 200
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 181
+
+   15 opt_split: ',' . SPLIT
+
+    SPLIT  shift, and go to state 201
+
+
+State 182
+
+   13 opt_index_only: ',' INDEX ONLY opt_split .
+
+    $default  reduce using rule 13 (opt_index_only)
+
+
+State 183
+
+   31 opt_column_size: '(' . int_literal ')'
+
+    INTVAL  shift, and go to state 202
+
+    int_literal  go to state 203
+
+
+State 184
+
+   19 column_def: ID column_type opt_column_size .
+
+    $default  reduce using rule 19 (column_def)
+
+
+State 185
+
+   22 primary_key: PRIMARY . KEY '(' attribute_list ')'
+
+    KEY  shift, and go to state 204
+
+
+State 186
+
+   18 column_def_commalist: column_def_commalist ',' column_def .
+
+    $default  reduce using rule 18 (column_def_commalist)
+
+
+State 187
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist ',' primary_key . opt_foreign_key_list ')'
+
+    $default  reduce using rule 24 (opt_foreign_key_list)
+
+    opt_foreign_key_list  go to state 205
+
+
+State 188
+
+   35 create_index_statement: CREATE INDEX ID ON ID '(' attribute_list ')' .
+
+    $default  reduce using rule 35 (create_index_statement)
+
+
+State 189
+
+   21 attribute_list: attribute_list ',' . ID
+
+    ID  shift, and go to state 206
+
+
+State 190
+
+   74 atomic_expression: COUNT '(' ID ')' .
+
+    $default  reduce using rule 74 (atomic_expression)
+
+
+State 191
+
+   75 atomic_expression: COUNT '(' '*' ')' .
+
+    $default  reduce using rule 75 (atomic_expression)
+
+
+State 192
+
+   73 atomic_expression: AVERAGE '(' ID ')' .
+
+    $default  reduce using rule 73 (atomic_expression)
+
+
+State 193
+
+   71 atomic_expression: MAX '(' ID ')' .
+
+    $default  reduce using rule 71 (atomic_expression)
+
+
+State 194
+
+   70 atomic_expression: MIN '(' ID ')' .
+
+    $default  reduce using rule 70 (atomic_expression)
+
+
+State 195
+
+   72 atomic_expression: SUM '(' ID ')' .
+
+    $default  reduce using rule 72 (atomic_expression)
+
+
+State 196
+
+   39 value_list: value_list ',' value .
+
+    $default  reduce using rule 39 (value_list)
+
+
+State 197
+
+   99 opt_group_by: GROUP BY . attribute_list opt_having
+
+    ID  shift, and go to state 150
+
+    attribute_list  go to state 207
+
+
+State 198
+
+  103 opt_order_by: ORDER . BY attribute_list
+
+    BY  shift, and go to state 208
+
+
+State 199
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list opt_where opt_group_by opt_order_by . opt_limit
+
+    LIMIT  shift, and go to state 209
+
+    $default  reduce using rule 106 (opt_limit)
+
+    opt_limit  go to state 210
+
+
+State 200
+
+   50 condition: condition . AND condition
+   76 update_statement: UPDATE ID SET ID '=' expression WHERE condition .
+
+    AND  shift, and go to state 112
+
+    $default  reduce using rule 76 (update_statement)
+
+
+State 201
+
+   15 opt_split: ',' SPLIT .
+
+    $default  reduce using rule 15 (opt_split)
+
+
+State 202
+
+   33 int_literal: INTVAL .
+
+    $default  reduce using rule 33 (int_literal)
+
+
+State 203
+
+   31 opt_column_size: '(' int_literal . ')'
+
+    ')'  shift, and go to state 211
+
+
+State 204
+
+   22 primary_key: PRIMARY KEY . '(' attribute_list ')'
+
+    '('  shift, and go to state 212
+
+
+State 205
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list . ')'
+   23 opt_foreign_key_list: opt_foreign_key_list . ',' foreign_key
+
+    ')'  shift, and go to state 213
+    ','  shift, and go to state 214
+
+
+State 206
+
+   21 attribute_list: attribute_list ',' ID .
+
+    $default  reduce using rule 21 (attribute_list)
+
+
+State 207
+
+   21 attribute_list: attribute_list . ',' ID
+   99 opt_group_by: GROUP BY attribute_list . opt_having
+
+    HAVING  shift, and go to state 215
+    ','     shift, and go to state 189
+
+    $default  reduce using rule 102 (opt_having)
+
+    opt_having  go to state 216
+
+
+State 208
+
+  103 opt_order_by: ORDER BY . attribute_list
+
+    ID  shift, and go to state 150
+
+    attribute_list  go to state 217
+
+
+State 209
+
+  105 opt_limit: LIMIT . INTVAL
+
+    INTVAL  shift, and go to state 218
+
+
+State 210
+
+   77 select_statement: SELECT opt_distinct star_or_select_item_list FROM table_spec_list opt_where opt_group_by opt_order_by opt_limit .
+
+    $default  reduce using rule 77 (select_statement)
+
+
+State 211
+
+   31 opt_column_size: '(' int_literal ')' .
+
+    $default  reduce using rule 31 (opt_column_size)
+
+
+State 212
+
+   22 primary_key: PRIMARY KEY '(' . attribute_list ')'
+
+    ID  shift, and go to state 150
+
+    attribute_list  go to state 219
+
+
+State 213
+
+   10 create_table_statement: CREATE TABLE ID opt_volatile '(' column_def_commalist ',' primary_key opt_foreign_key_list ')' .
+
+    $default  reduce using rule 10 (create_table_statement)
+
+
+State 214
+
+   23 opt_foreign_key_list: opt_foreign_key_list ',' . foreign_key
+
+    FOREIGN  shift, and go to state 220
+
+    foreign_key  go to state 221
+
+
+State 215
+
+  101 opt_having: HAVING . condition
+
+    INTVAL    shift, and go to state 65
+    FLOATVAL  shift, and go to state 66
+    ID        shift, and go to state 67
+    STRING    shift, and go to state 68
+    COUNT     shift, and go to state 69
+    AVERAGE   shift, and go to state 70
+    MAX       shift, and go to state 71
+    MIN       shift, and go to state 72
+    SUM       shift, and go to state 73
+    NULL      shift, and go to state 74
+    NOT       shift, and go to state 75
+    TRUE      shift, and go to state 76
+    FALSE     shift, and go to state 77
+    '-'       shift, and go to state 78
+    '('       shift, and go to state 79
+
+    constant           go to state 80
+    condition          go to state 222
+    atomic_condition   go to state 82
+    expression         go to state 83
+    atomic_expression  go to state 84
+
+
+State 216
+
+   99 opt_group_by: GROUP BY attribute_list opt_having .
+
+    $default  reduce using rule 99 (opt_group_by)
+
+
+State 217
+
+   21 attribute_list: attribute_list . ',' ID
+  103 opt_order_by: ORDER BY attribute_list .
+
+    ','  shift, and go to state 189
+
+    $default  reduce using rule 103 (opt_order_by)
+
+
+State 218
+
+  105 opt_limit: LIMIT INTVAL .
+
+    $default  reduce using rule 105 (opt_limit)
+
+
+State 219
+
+   21 attribute_list: attribute_list . ',' ID
+   22 primary_key: PRIMARY KEY '(' attribute_list . ')'
+
+    ')'  shift, and go to state 223
+    ','  shift, and go to state 189
+
+
+State 220
+
+   25 foreign_key: FOREIGN . KEY '(' attribute_list ')' REFERENCES ID
+
+    KEY  shift, and go to state 224
+
+
+State 221
+
+   23 opt_foreign_key_list: opt_foreign_key_list ',' foreign_key .
+
+    $default  reduce using rule 23 (opt_foreign_key_list)
+
+
+State 222
+
+   50 condition: condition . AND condition
+  101 opt_having: HAVING condition .
+
+    AND  shift, and go to state 112
+
+    $default  reduce using rule 101 (opt_having)
+
+
+State 223
+
+   22 primary_key: PRIMARY KEY '(' attribute_list ')' .
+
+    $default  reduce using rule 22 (primary_key)
+
+
+State 224
+
+   25 foreign_key: FOREIGN KEY . '(' attribute_list ')' REFERENCES ID
+
+    '('  shift, and go to state 225
+
+
+State 225
+
+   25 foreign_key: FOREIGN KEY '(' . attribute_list ')' REFERENCES ID
+
+    ID  shift, and go to state 150
+
+    attribute_list  go to state 226
+
+
+State 226
+
+   21 attribute_list: attribute_list . ',' ID
+   25 foreign_key: FOREIGN KEY '(' attribute_list . ')' REFERENCES ID
+
+    ')'  shift, and go to state 227
+    ','  shift, and go to state 189
+
+
+State 227
+
+   25 foreign_key: FOREIGN KEY '(' attribute_list ')' . REFERENCES ID
+
+    REFERENCES  shift, and go to state 228
+
+
+State 228
+
+   25 foreign_key: FOREIGN KEY '(' attribute_list ')' REFERENCES . ID
+
+    ID  shift, and go to state 229
+
+
+State 229
+
+   25 foreign_key: FOREIGN KEY '(' attribute_list ')' REFERENCES ID .
+
+    $default  reduce using rule 25 (foreign_key)
