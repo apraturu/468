@@ -76,12 +76,12 @@ int createSequentialFile(Buffer *buf, char *createTable, RecordDesc recordDesc, 
    if (table->isVolatile) {
       allocateCachePage(buf, addr);
       writeVolatile(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
-      addVolatileFile(buf, fd);
+      //addVolatileFile(buf, fd);
    }
    else {
       readPage(buf, addr);
       writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
-      addPersistentFile(buf, fd);
+      //addPersistentFile(buf, fd);
    }
    return 0;
 }
@@ -112,11 +112,11 @@ int deleteSequentialFile(Buffer *buf, char *tableName) {
       }
    }
    
-   if(checkPersistentFiles(buf, fd) >= 0) {
-       removeFileFromPersistentList(buf, fd);
-   } else {
-       removeFileFromVolatileList(buf, fd);
-   }
+   //if(checkPersistentFiles(buf, fd) >= 0) {
+   //    removeFileFromPersistentList(buf, fd);
+   //} else {
+   //    removeFileFromVolatileList(buf, fd);
+   //}
    
    return 0;
 }

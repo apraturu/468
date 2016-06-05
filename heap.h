@@ -2,7 +2,7 @@
 #define HEAP_H
 
 #define NAME_LEN 30
-#define MAX_FIELDS 20
+#define MAX_FIELDS 40
 #define PAGE_HDR_SIZE 256
 
 #include "bufferManager.h"
@@ -23,6 +23,8 @@ typedef struct {
    int recordSize;
    int pageList; // page id of first page in file
    int freeList; // page id of first page with free space
+   int numBlocks;
+   int numTuples;
    RecordDesc recordDesc;
 } HeapFileHeader;
 
@@ -36,7 +38,9 @@ typedef struct {
    int nextFree; // page id of next page with free space
 } HeapPageHeader;
 
-int createHeapFile(Buffer *buf, char *createTable);
+int sizeOfRecordDesc(RecordDesc recordDesc);
+
+int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile);
 int deleteHeapFile(Buffer *buf, char *tableName);
 
 int heapHeaderGetTableName(Buffer *buf, int fd, char *name);
@@ -44,6 +48,12 @@ int heapHeaderGetRecordDesc(Buffer *buf, int fd, RecordDesc *recordDesc);
 int heapHeaderGetNextPage(Buffer *buf, int fd, DiskAddress *page);
 int heapHeaderGetFreeSpace(Buffer *buf, int fd, DiskAddress *page);
 int heapHeaderGetRecordSize(Buffer *buf, int fd, int *recordSize);
+int heapHeaderGetNumBlocks(Buffer *buf, int fd, int *numBlocks);
+int heapHeaderGetNumTuples(Buffer *buf, int fd, int *numTuples);
+int heapHeaderIncrementNumBlocks(Buffer *buf, int fd);
+int heapHeaderIncrementNumTuples(Buffer *buf, int fd);
+int heapHeaderDecrementNumTuples(Buffer *buf, int fd);
+
 int heapHeaderSetNextPage(Buffer *buf, fileDescriptor fd, int nextPage);
 int heapHeaderSetFreeSpace(Buffer *buf, fileDescriptor fd, int freePage);
 
@@ -69,5 +79,7 @@ int setField(char *fieldName, char *record, RecordDesc rd, char *value);
 int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *location);
 int deleteRecord(Buffer *buf, DiskAddress page, int recordId);
 int updateRecord(Buffer *buf, DiskAddress page, int recordId, char *record);
+
+int bitmapIsSet(char *bitmap, int ndx);
 
 #endif

@@ -12,7 +12,7 @@
 
 // Creates a new temporary heap file and return the file descriptor. Puts the
 // name of the temporary file into filename.
-fileDescriptor makeTempTable(Buffer *buf, string *filename, RecordDesc recordDesc);
+fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc);
 
 // Returns true if the given record satisfies the given boolean condition.
 bool checkCondition(Record *record, FLOPPYNode *cond);
@@ -125,7 +125,7 @@ int selectScan(fileDescriptor inTable, FLOPPYNode *cond, fileDescriptor *outTabl
    // Iterate through all tuples, outputting those that match the given condition
    for (Record *record = iter.next(); record; record = iter.next()) {
       if (checkCondition(record, cond))
-         insertRecord(buffer, outFile, record->getBytes(), &temp);
+         insertRecord(buffer, outFile, record->getBytes(recordDesc), &temp);
    }
 }
 
@@ -166,7 +166,7 @@ int project(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *
          }
       }
 
-      insertRecord(buffer, outFile, record->getBytes(), &temp);
+      insertRecord(buffer, outFile, record->getBytes(newRecordDesc), &temp);
    }
 }
 
@@ -190,7 +190,7 @@ int joinMultiPass(fileDescriptor inTable1, fileDescriptor inTable2,
 
 int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
                     FLOPPYNode *condition, fileDescriptor *outTable) {
-   string outFile;
+   char *outFile;
    DiskAddress temp;
    RecordDesc oldRecordDesc1, oldRecordDesc2, newRecordDesc;
 
@@ -232,7 +232,7 @@ int sortTable(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor
 }
 
 int limitTable(fileDescriptor inTable, int k, fileDescriptor *outTable) {
-   string outFile;
+   char *outFile;
    DiskAddress temp;
    RecordDesc recordDesc;
 
@@ -243,7 +243,7 @@ int limitTable(fileDescriptor inTable, int k, fileDescriptor *outTable) {
    TupleIterator iter(inTable);
 
    for (Record *record = iter.next(); record && k; record = iter.next(), k--)
-      insertRecord(buffer, (char *)outFile.c_str(), record->getBytes(), &temp);
+      insertRecord(buffer, outFile, record->getBytes(recordDesc), &temp);
 }
 
 
@@ -256,9 +256,7 @@ fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc
    stream << "_temp_" << id++;
    *filename = (char *)stream.str().c_str();
 
-   // TODO I'm going to eventually refactor createHeapFile to take in these parameter
-   // types instead, so don't change this line even though it doesn't compile.
-   return createHeapFile(buf, *filename, recordDesc);
+   return createHeapFile(buf, *filename, recordDesc, false);
 }
 
 RecordField evalExpr(Record *record, FLOPPYNode *expr) {
@@ -271,7 +269,7 @@ RecordField evalExpr(Record *record, FLOPPYNode *expr) {
          case IntValue:
             return RecordField((int)expr->value->iVal);
          case FloatValue:
-            return RecordField(RecordField::FieldType::FLOAT, expr->value->fVal);
+            return RecordField(FLOAT, expr->value->fVal);
          case BooleanValue:
             return RecordField(expr->value->bVal);
       }
@@ -319,6 +317,9 @@ RecordField evalExpr(Record *record, FLOPPYNode *expr) {
 }
 
 bool checkCondition(Record *record, FLOPPYNode *cond) {
+   if (cond == NULL)
+      return true;
+
    if (cond->_type == ValueNode)
       return cond->value->bVal;
 

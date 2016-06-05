@@ -1,6 +1,7 @@
 #include <vector>
 #include "FLOPPYParser.h"
 #include "libTinyFS.h"
+#include "TupleIterator.h"
 
 using namespace std;
 
@@ -30,3 +31,7 @@ int groupMultiPass(fileDescriptor inTable, vector<char *> *group, vector<Aggrega
 int sortTable(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *outTable);
 
 int limitTable(fileDescriptor inTable, int k, fileDescriptor *outTable);
+
+
+RecordField evalExpr(Record *record, FLOPPYNode *expr);
+bool checkCondition(Record *record, FLOPPYNode *cond);

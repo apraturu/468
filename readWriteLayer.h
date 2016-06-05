@@ -1,3 +1,6 @@
+#ifndef READWRITELAYER_H
+#define READWRITELAYER_H
+
 char *getPage(Buffer *buf, DiskAddress page);
 
 int putPage(Buffer *buf, DiskAddress page, char *data, int dataSize);
@@ -8,8 +11,10 @@ int write(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char *data
 
 char *readVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes);
 
-int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize);
+int writeVolatile(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char *data, int dataSize);
 
 char *readPersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes);
 
-int writePersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char * data, int dataSize);
+int writePersistent(Buffer *buf, DiskAddress page, int startOffset, int nBytes, char *data, int dataSize);
+
+#endif

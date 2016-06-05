@@ -2,50 +2,65 @@
 #include <string.h>
 #include "bufferManager.h"
 #include "heap.h"
-#include "parser.h"
 #include "readWriteLayer.h"
+#include "FLOPPY_statements/statements.h"
 
-int createHeapFile(Buffer *buf, char *createTable) {
-   tableDescription *table = parseCreate(createTable);
+int sizeOfRecordDesc(RecordDesc recordDesc) {
+   int size = 0;
+   for (int i = 0; i < recordDesc.numFields; i++) {
+      if (recordDesc.fields[i].type == INT || recordDesc.fields[i].type == BOOLEAN) {
+         int remainder = size % 4;
+         if (remainder)
+            size += 4 - remainder;
+      }
+      else if (recordDesc.fields[i].type == FLOAT || recordDesc.fields[i].type == DATETIME) {
+         int remainder = size % 8;
+         if (remainder)
+            size += 8 - remainder;
+      }
 
+      size += recordDesc.fields[i].size;
+   }
+   // always pad records to a multiple of 8 bytes for simplicity.
+   int remainder = size % 8;
+   if (remainder)
+      size += 8 - remainder;
+
+   return size;
+}
+
+int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile) {
    HeapFileHeader header;
 
-   strcpy(header.tableName, table->tableName);
+   strcpy(header.tableName, filename);
 
-   Attribute *att = table->attList;
-   int fNdx = 0;
-   header.recordSize = header.recordDesc.numFields = 0;
-   while (att) {
-      strcpy(header.recordDesc.fields[fNdx].name, att->attName);
-      header.recordDesc.fields[fNdx].type = att->attType;
-      header.recordDesc.fields[fNdx].size = att->size;
-      header.recordSize += att->size;
-      header.recordDesc.numFields++;
-      fNdx++;
-      att = att->next;
-   }
+   header.recordDesc = recordDesc;
+
+   header.recordSize = sizeOfRecordDesc(recordDesc);
 
    header.pageList = header.freeList = -1;
 
-   fileDescriptor fd = tfs_openFile(table->tableName);
+   fileDescriptor fd = getFd(filename);
    DiskAddress addr;
 
    newPage(buf, fd, &addr);
-   if (table->isVolatile) {
-      allocateCachePage(buf, addr);
-      writeVolatile(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
-      addVolatileFile(buf, fd);
-   }
-   else {
-      readPage(buf, addr);
-      writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
-      addPersistentFile(buf, fd);
-   }
+   writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+
+   // TODO figure out persistent vs volatile files...
+   //
+   //if (table->isVolatile) {
+   //   writeVolatile(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+   //   addVolatileFile(buf, fd);
+   //}
+   //else {
+   //   writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+   //   addPersistentFile(buf, fd);
+   //}
    return fd;
 }
 
 int deleteHeapFile(Buffer *buf, char *tableName) {
-   int fd = tfs_openFile(tableName);
+   int fd = getFd(tableName);
    tfs_deleteFile(fd);
    
    int i;
@@ -72,7 +87,7 @@ HeapFileHeader *getFileHeader(Buffer *buf, fileDescriptor fd) {
    addr.FD = fd;
    addr.pageId = 0;
 
-   readPage(buf, addr);
+   int i = readPage(buf, addr);
    return (HeapFileHeader *)read(buf, addr, 0, sizeof(HeapFileHeader));
 }
 
@@ -160,13 +175,14 @@ int getRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes) {
    if (heapHeaderGetRecordSize(buf, page.FD, &recordSize) < 0)
       return -1;
 
-   if (checkPersistentFiles(buf, page.FD) >= 0)
+   // TODO figure out volatile stuff
+   //if (checkPersistentFiles(buf, page.FD) >= 0)
       readPage(buf, page);
-   else
-      allocateCachePage(buf, page);
+   //else
+   //   allocateCachePage(buf, page);
 
    char *record = read(buf, page,
-    sizeof(HeapFileHeader) + recordId * recordSize, recordSize);
+    PAGE_HDR_SIZE + recordId * recordSize, recordSize);
    memcpy(bytes, record, recordSize);
    return 0;
 }
@@ -181,7 +197,7 @@ int putRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes) {
    else
       allocateCachePage(buf, page);
 
-   return write(buf, page, sizeof(HeapFileHeader) + recordId * recordSize,
+   return write(buf, page, PAGE_HDR_SIZE + recordId * recordSize,
     recordSize, bytes, recordSize);
 }
 
@@ -336,7 +352,7 @@ int setField(char *fieldName, char *record, RecordDesc rd, char *value) {
 int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *location) {
    DiskAddress page;
 
-   int fd = tfs_openFile(tableName);
+   int fd = getFd(tableName);
 
    if (heapHeaderGetFreeSpace(buf, fd, &page) < 0)
       return -1;
@@ -374,25 +390,32 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
 
       header.prevPage = 0; // set new page's prevPage to file header
       header.nextFree = -1; // set new page's nextFree to -1 because no other free pages
+
+      writePersistent(buf, page, 0, sizeof(HeapPageHeader), (char *)&header, sizeof(HeapPageHeader));
    }
 
    int maxRecords;
    pHGetMaxRecords(buf, page, &maxRecords);
-   char *bitmap = malloc(maxRecords / 8), *byte = bitmap;
+   char *bitmap = (char *)malloc(maxRecords / 8), *byte = bitmap;
    pHGetBitmap(buf, page, bitmap);
 
-   int recordNdx = 0;
-   int mask;
-   while (recordNdx < maxRecords) {
-      mask = 0x80 >> (recordNdx % 8);
-
-      if (mask & *byte == 0)
+   int recordNdx;
+   for (recordNdx = 0; recordNdx < maxRecords; recordNdx++) {
+      if (!bitmapIsSet(bitmap, recordNdx))
          break;
-
-      recordNdx++;
-      if (recordNdx % 8 == 0)
-         byte++;
    }
+   //int recordNdx = 0;
+   //int mask;
+   //while (recordNdx < maxRecords) {
+   //   mask = 0x80 >> (recordNdx % 8);
+
+   //   if (mask & *byte == 0)
+   //      break;
+
+   //   recordNdx++;
+   //   if (recordNdx % 8 == 0)
+   //      byte++;
+   //}
 
    if (recordNdx == maxRecords)
       return -1;
@@ -431,7 +454,7 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
  * if page is full:
  *    put page at front of freelist
  * setBitmapFalse
- * decrementCount 
+ * decrementCount
  */
 int deleteRecord(Buffer *buf, DiskAddress page, int recordId) {
    int x, y;
@@ -456,3 +479,10 @@ int deleteRecord(Buffer *buf, DiskAddress page, int recordId) {
 int updateRecord(Buffer *buf, DiskAddress page, int recordId, char *record) {
    return putRecord(buf, page, recordId, record);
 }
+
+// Returns nonzero if the given index in the bitmap is set
+int bitmapIsSet(char *bitmap, int ndx) {
+   int mask = 0x80 >> (ndx % 8);
+   return bitmap[ndx / 8] & mask;
+}
+

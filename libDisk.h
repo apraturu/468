@@ -2,12 +2,17 @@
  * Foaad Khosmood  / Spring 2016
  * California Polytechnic State University */
 
-#define DEBUG_STATE 1
-#define DEBUG(text) if (DEBUG_STATE) {fprintf(stderr,"DEBUG:: "); fprintf(stderr,text); fprintf(stderr,"\n");} 
+#define DEBUG_STATE 0
+#define DEBUG(text)
+ //if (DEBUG_STATE) {fprintf(stderr,"DEBUG:: "); fprintf(stderr,text); \
+                fprintf(stderr, "\n");}
+
+/*		fprintf(stderr, "\tFile : \"%s\"\tFunction : \"%s\"\t"\
+                "Line : %d\n", __FILE__, __func__, __LINE__);} 
+*/
 
 #define MAX_DISKS 100
 #define DISK_NAME_SIZE 20
-
 
 typedef struct Disk {
    int enabled;
@@ -15,7 +20,7 @@ typedef struct Disk {
    char name[DISK_NAME_SIZE];
 } Disk;
 
-Disk disks[MAX_DISKS];
+//Disk disks[MAX_DISKS];
 
 /* This functions opens a regular UNIX file and designates the first nBytes of
  * it as space for the emulated disk. nBytes should be an integral number of

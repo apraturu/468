@@ -1,3 +1,5 @@
+#include <string>
+
 typedef int fileDescriptor;
 
 /* Makes a blank TinyFS file system of size nBytes on the file specified by
@@ -30,12 +32,12 @@ int tfs_closeFile(fileDescriptor FD);
 /* Writes buffer 'buffer' of size 'size', which represents an entire file's
  * content, to the file system. Sets the file pointer to 0 (the start of
  * file) when done. Returns success/error codes. */
-int tfs_writeFile(fileDescriptor FD,char *buffer, int size);
+int tfs_writeFile(fileDescriptor FD, char *buffer, int size);
 
 /* TFS468 read/write page */
-int tfs_writePage_size(fileDescriptor FD,unsigned int page, unsigned char * data, int size);
-int tfs_writePage(fileDescriptor FD,unsigned int page, unsigned char * data);
-int tfs_readPage(fileDescriptor FD,unsigned int page, unsigned char * data);
+int tfs_writePage_size(fileDescriptor FD, unsigned int page, unsigned char *data, int size);
+int tfs_writePage(fileDescriptor FD, unsigned int page, unsigned char *data);
+int tfs_readPage(fileDescriptor FD, unsigned int page, unsigned char *data);
 
 /* returns number of pages on a TFS486 file including the first page (inode) */
 int tfs_numPages(fileDescriptor FD);
@@ -55,7 +57,7 @@ int tfs_seek(fileDescriptor FD, int offset);
 
 /* Renames the file with name 'old' to the name 'new'.
  * Returns an error if the old file cannot be found. */
-int tfs_rename(char* oldname, char* newname);
+int tfs_rename(char *oldname, char *newname);
 
 /* Lists all files on the disk, and some information about each */
 int tfs_readDir(void);
@@ -63,3 +65,5 @@ int tfs_readDir(void);
 
 /* Displays the creation, last modification, and last access times of a file */
 int tfs_readFileInfo(fileDescriptor FD);
+
+int getFd(std::string name);

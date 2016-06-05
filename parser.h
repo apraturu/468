@@ -1,5 +1,3 @@
-enum Type {INT, FLOAT, VARCHAR, DATETIME, BOOLEAN};
-
 typedef struct Attribute {
    char *attName;
    enum Type attType;
