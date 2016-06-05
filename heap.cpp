@@ -196,6 +196,7 @@ int heapHeaderIncrementNumBlocks(Buffer *buf, int fd) {
       return -1;
       
    header->numBlocks++;
+   write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
 
@@ -205,6 +206,7 @@ int heapHeaderIncrementNumTuples(Buffer *buf, int fd) {
       return -1;
       
    header->numTuples++;
+   write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
 
@@ -214,6 +216,7 @@ int heapHeaderDecrementNumTuples(Buffer *buf, int fd) {
       return -1;
    
    header->numTuples--;
+   write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
 
