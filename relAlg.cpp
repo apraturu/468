@@ -260,15 +260,15 @@ int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
 
    // TODO form newRecordDesc by combining the fields from oldRecordDesc1 and oldRecordDesc2
    // justin double check this [pierson]
-   //copies oldRecordDesc1 stuff into newRecordDesc
+   //copies oldRecordDesc2 stuff into newRecordDesc
    newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
-   for (i = 0; i < oldRecordDesc1.numFields; i++) {
-      strcpy(newRecordDesc.fields + i, oldRecordDesc1.fields + i, sizeof(fields));
-   }
-   //copies oldRecordDesc2 stuff into newRecordDesc after oldRecordDesc1's stuff
-   j = i;
    for (i = 0; i < oldRecordDesc2.numFields; i++) {
-      strcpy(newRecordDesc.fields + j, oldRecordDesc2.fields + i, sizeof(fields));
+      strcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(fields));
+   }
+   //copies oldRecordDesc1 stuff into newRecordDesc after oldRecordDesc2's stuff
+   j = i;
+   for (i = 0; i < oldRecordDesc1.numFields; i++) {
+      strcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(fields));
    }
    
    *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
