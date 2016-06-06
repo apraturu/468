@@ -178,9 +178,60 @@ int product(fileDescriptor inTable1, fileDescriptor inTable2, fileDescriptor *ou
    joinNestedLoops(inTable1, inTable2, NULL, outTable);
 }
 
+/*appends all of record1's fields to record2*/
+int combineRecords(Record *rec1, Record *rec2) {
+   for (auto fIter = rec1->fields.begin(); fIter != rec1->fields.end(); fIter++) {
+      rec2->fields[fIter->first] = fIter->second;
+   }
+   return 0;
+}
+
 int joinOnePass(fileDescriptor inTable1, fileDescriptor inTable2,
                 FLOPPYNode *condition, fileDescriptor *outTable) {
    // TODO
+   // justin please check this entire function [pierson]
+   
+   char *outFile;
+   DiskAddress temp;
+   RecordDesc oldRecordDesc1, oldRecordDesc2, newRecordDesc;
+   int numBlocksT1, numBlocksT2, i, j;
+   Record newRecord;
+   
+   // swap(inTable1, inTable2) if necessary to make it so table 1 is the bigger one
+   // (the table with bigger numBlocks)
+   heapHeaderGetNumBlocks(inTable1, &numBlocksT1);
+   heapHeaderGetNumBlocks(inTable2, &numBlocksT2);
+   
+   if (numBlocksT1 < numBlocksT2)
+      swap(inTable1, inTable2);
+   
+   heapHeaderGetRecordDesc(buffer, inTable1, &oldRecordDesc1);
+   heapHeaderGetRecordDesc(buffer, inTable2, &oldRecordDesc2);
+   
+   // forms newRecordDesc by combining the fields from oldRecordDesc1 and oldRecordDesc2 (all of oldRecordDesc1 stuff comes AFTER oldRecordDesc2 stuff in newRecordDesc)
+   newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
+   for (i = 0; i < oldRecordDesc2.numFields; i++) {
+      strcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(fields));
+   }
+   j = i;
+   for (i = 0; i < oldRecordDesc1.numFields; i++) {
+      strcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(fields));
+   }
+   
+   *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
+
+   TupleIterator iter1(inTable1);
+      
+   // Iterate through all tuples, outputting those that match the given condition
+   for (Record *record1 = iter1.next(); record1; record1 = iter1.next()) {
+      TupleIterator iter2(inTable2);
+      for (Record *record2 = iter2.next(); record2; record2 = iter2.next() {
+            combineRecords(record1, record2);
+            
+            if (checkCondition(record2, condition)
+               insertRecord(buffer, outFile, record2->getBytes(newRecordDesc), &temp); 
+      }      
+   }   
 }
 
 int joinMultiPass(fileDescriptor inTable1, fileDescriptor inTable2,
