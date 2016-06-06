@@ -193,15 +193,33 @@ int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
    char *outFile;
    DiskAddress temp;
    RecordDesc oldRecordDesc1, oldRecordDesc2, newRecordDesc;
-
+   int numBlocksT1, numBlocksT2, i, j;
+   
    // TODO swap(inTable1, inTable2) if necessary to make it so table 1 is the bigger one
    // (the table with bigger numBlocks)
-
+   // justin double check this [pierson]
+   heapHeaderGetNumBlocks(inTable1, &numBlocksT1);
+   heapHeaderGetNumBlocks(inTable2, &numBlocksT2);
+   
+   if (numBlocksT1 < numBlocksT2)
+      swap(inTable1, inTable2);
+   
    heapHeaderGetRecordDesc(buffer, inTable1, &oldRecordDesc1);
    heapHeaderGetRecordDesc(buffer, inTable2, &oldRecordDesc2);
 
    // TODO form newRecordDesc by combining the fields from oldRecordDesc1 and oldRecordDesc2
-
+   // justin double check this [pierson]
+   //copies oldRecordDesc1 stuff into newRecordDesc
+   newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
+   for (i = 0; i < oldRecordDesc1.numFields; i++) {
+      strcpy(newRecordDesc.fields + i, oldRecordDesc1.fields + i, sizeof(fields));
+   }
+   //copies oldRecordDesc2 stuff into newRecordDesc after oldRecordDesc1's stuff
+   j = i;
+   for (i = 0; i < oldRecordDesc2.numFields; i++) {
+      strcpy(newRecordDesc.fields + j, oldRecordDesc2.fields + i, sizeof(fields));
+   }
+   
    *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
 
    TupleIterator iter1(inTable1);
