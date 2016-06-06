@@ -254,7 +254,7 @@ fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc
 
    stringstream stream;
    stream << "_temp_" << id++;
-   *filename = (char *)stream.str().c_str();
+   *filename = (char *)(new string(stream.str()))->c_str();
 
    return createHeapFile(buf, *filename, recordDesc, false);
 }

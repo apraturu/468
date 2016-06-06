@@ -31,7 +31,7 @@ enum QueryNodeType {TABLE, SELECT, PROJECT, DUPLICATE, PRODUCT, JOIN, GROUP, SOR
 struct QueryPlan {
    QueryNodeType type;
    int impl;
-   union {
+   //union {
       char *strVal;
       int intVal;
       FLOPPYNode *cond;
@@ -41,7 +41,7 @@ struct QueryPlan {
          vector<char *> *groupBy;
          vector<Aggregate> *aggregates;
       } grouping;
-   };
+   //};
    QueryPlan *left, *right; // subtrees, use only left if unary operation
 };
 
@@ -77,11 +77,14 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
          temp = new QueryPlan;
          temp->type = PRODUCT;
          temp->left = plan;
+         temp->right = NULL;
       }
 
       plan = new QueryPlan;
       plan->type = TABLE;
       plan->strVal = (*tableSpec)->tableName;
+      plan->left = NULL;
+      plan->right = NULL;
 
       if (!first) {
          temp->right = plan;
@@ -96,6 +99,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan->type = SELECT;
       plan->cond = stm->whereCondition;
       plan->left = temp;
+      plan->right = NULL;
    }
 
    // Process GROUP BY and HAVING clauses
@@ -114,6 +118,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
          }
       }
       plan->left = temp;
+      plan->right = NULL;
 
       if (stm->groupBy->havingCondition) {
          temp = plan;
@@ -121,6 +126,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
          plan->type = SELECT;
          plan->cond = stm->groupBy->havingCondition;
          plan->left = temp;
+         plan->right = NULL;
       }
    }
    else { // handle case where select clause has aggregates but there is no group by
@@ -138,6 +144,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
          plan->grouping.groupBy = NULL;
          plan->grouping.aggregates = aggs;
          plan->left = temp;
+         plan->right = NULL;
       }
    }
 
@@ -148,6 +155,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan->type = SORT;
       plan->attList = stm->orderBys;
       plan->left = temp;
+      plan->right = NULL;
    }
    
    // Process SELECT clause
@@ -158,39 +166,40 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan->type = PROJECT;
       plan->attList = new vector<char *>;
       for (auto iter = stm->selectItems->begin(); iter != stm->selectItems->end(); iter++) {
-         string str;
+         string *str = new string;
          switch ((*iter)->_type) {
             case AttributeType:
-               str = (*iter)->attribute;
+               *str = (*iter)->attribute;
                break;
             case TableAttributeType:
-               str = string((*iter)->tableAttribute.tableName) + "." +
+               *str = string((*iter)->tableAttribute.tableName) + "." +
                        (*iter)->tableAttribute.attribute;
                break;
             case AggregateType:
                switch ((*iter)->aggregate.op) {
                   case CountAggregate:
-                     str = string("COUNT(") + (*iter)->aggregate.value->sVal + ")";
+                     *str = string("COUNT(") + (*iter)->aggregate.value->sVal + ")";
                        break;
                   case CountStarAggregate:
-                     str = "COUNT(*)";
+                     *str = "COUNT(*)";
                        break;
                   case AverageAggregate:
-                     str = string("AVG(") + (*iter)->aggregate.value->sVal + ")";
+                     *str = string("AVG(") + (*iter)->aggregate.value->sVal + ")";
                        break;
                   case MinAggregate:
-                     str = string("MIN(") + (*iter)->aggregate.value->sVal + ")";
+                     *str = string("MIN(") + (*iter)->aggregate.value->sVal + ")";
                        break;
                   case MaxAggregate:
-                     str = string("MAX(") + (*iter)->aggregate.value->sVal + ")";
+                     *str = string("MAX(") + (*iter)->aggregate.value->sVal + ")";
                        break;
                   case SumAggregate:
-                     str = string("SUM(") + (*iter)->aggregate.value->sVal + ")";
+                     *str = string("SUM(") + (*iter)->aggregate.value->sVal + ")";
                }
          }
-         plan->attList->push_back((char *)str.c_str());
+         plan->attList->push_back((char *)str->c_str());
       }
       plan->left = temp;
+      plan->right = NULL;
    }
 
    if (stm->distinct) {
@@ -198,6 +207,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan = new QueryPlan;
       plan->type = DUPLICATE;
       plan->left = temp;
+      plan->right = NULL;
    }
 
    // Process LIMIT clause
@@ -207,6 +217,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan->type = LIMIT;
       plan->intVal = stm->limit;
       plan->left = temp;
+      plan->right = NULL;
    }
 
    return plan;
@@ -317,10 +328,12 @@ bool validateSelectClause(FLOPPYSelectStatement *stm,
       FLOPPYSelectItem *item = *iter;
 
       if (item->_type == AttributeType) {
-         vector<char *> *group = stm->groupBy->groupByAttributes;
-         if (stm->groupBy && find(group->begin(), group->end(), item->attribute) == group->end()) {
-            *errMsg = "Attribute not included in GROUP BY: " + string(item->attribute);
-            return false;
+         if (stm->groupBy) {
+            vector<char *> *group = stm->groupBy->groupByAttributes;
+            if (find(group->begin(), group->end(), item->attribute) == group->end()) {
+               *errMsg = "Attribute not included in GROUP BY: " + string(item->attribute);
+               return false;
+            }
          }
 
          if (!attributeExists(item->attribute, tableNames)) {
@@ -403,6 +416,11 @@ void optimizeLogicalPlan(QueryPlan *plan) {
 // TODO doing this requires having B(R) and T(R) stored in the file headers
 void makePhysicalPlan(QueryPlan *plan) {
    // go through plan and set the impl field of each non-leaf node
+   plan->impl = 0;
+   if (plan->left)
+      makePhysicalPlan(plan->left);
+   if (plan->right)
+      makePhysicalPlan(plan->right);
 }
 
 // this returns the fd of the file in which the result is stored
@@ -463,9 +481,9 @@ int executeQueryPlan(QueryPlan *plan) {
 
    // delete temp tables
    if (plan->left->type != TABLE)
-      tfs_deleteFile(in);
+      deleteFile(buffer, in);
    if (in2 >= 0 && plan->right->type != TABLE)
-      tfs_deleteFile(in2);
+      deleteFile(buffer, in2);
 
    return out;
 }
@@ -506,16 +524,19 @@ void printTable(int fd) {
 void selectStatement(FLOPPYSelectStatement *stm) {
    string errMsg;
 
+   //printf("selectStatement\n");
    if (validateSemantics(stm, &errMsg)) {
+      //printf("validated semantics\n");
       QueryPlan *plan = makeQueryPlan(stm);
+      //printf("made query plan\n");
       optimizeLogicalPlan(plan);
       makePhysicalPlan(plan);
+      //printf("made physical plan\n");
       int fd = executeQueryPlan(plan);
+      //printf("executed query, fd = %d\n", fd);
       printTable(fd);
-      if (plan->type != TABLE) {// delete temp file
-         printf("deleting file %d\n", fd);
-         tfs_deleteFile(fd);
-      }
+      if (plan->type != TABLE) // delete temp file
+         deleteFile(buffer, fd);
    }
    else {
       printf("Error running query: %s\n", errMsg.c_str());
@@ -709,7 +730,7 @@ void runStatement(char *query) {
 
 // Stuff that seems to work:
 // - create table (volatile isn't handled yet though)
-// - drop table // TODO stuff might not be getting removed from buffer?
+// - drop table
 // - insert
 // - delete
 // - update

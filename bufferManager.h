@@ -50,5 +50,6 @@ int checkPersistentFiles(Buffer *buf, int FD);
 int checkVolatileFiles(Buffer *buf, int FD);
 int removeFileFromPersistentList(Buffer *buf, int FD);
 int removeFileFromVolatileList(Buffer *buf, int FD);
+void deleteFile(Buffer *buf, int FD);
 
 #endif

@@ -60,26 +60,8 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
 }
 
 int deleteHeapFile(Buffer *buf, char *tableName) {
-   int fd = getFd(tableName);
-   tfs_deleteFile(fd);
-   
-   int i;
-   for (i = 0; i < buf->nBufferBlocks; i++) {
-      if (buf->buffer_timestamp[i] == -1)
-         continue;
-      if (buf->pages[i].address.FD == fd) {
-         buf->buffer_timestamp[i] = -1;
-         buf->numBufferOccupied--;
-      }
-   }
-   for (i = 0; i < buf->nCacheBlocks; i++) {
-      if (buf->cache_timestamp[i] == -1)
-         continue;
-      if (buf->cache[i].address.FD == fd) {
-         buf->cache_timestamp[i] = -1;
-         buf->numCacheOccupied--;
-      }
-   }
+   deleteFile(buf, getFd(tableName));
+   return 0;
 }
 
 HeapFileHeader *getFileHeader(Buffer *buf, fileDescriptor fd) {

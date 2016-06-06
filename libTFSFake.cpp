@@ -23,8 +23,8 @@ int tfs_unmount(void) {
 }
 
 fileDescriptor tfs_openFile(char *name) {
-   printf("tfs_openFile, opening %s\n", name);
    int fd = open(name, O_RDWR | O_CREAT, 0666);
+   //printf("tfs_openFile, opening %d, %s\n", fd, name);
    if (fd < 0)
       perror("tfs_openFile");
    fdToName[fd] = name;

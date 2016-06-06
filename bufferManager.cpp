@@ -414,3 +414,21 @@ int removeCachePage(Buffer *buf, DiskAddress diskPage) {
 //
 //   return 0;
 //}
+
+void deleteFile(Buffer *buf, int FD) {
+   tfs_deleteFile(FD);
+   for (int i = 0; i < buf->nBufferBlocks; i++) {
+      if (buf->buffer_timestamp[i] != -1 && buf->pages[i].address.FD == FD) {
+         buf->buffer_timestamp[i] = -1;
+         buf->pin[i] = 0;
+         buf->numBufferOccupied--;
+      }
+   }
+
+   for (int i = 0; i < buf->nCacheBlocks; i++) {
+      if (buf->cache_timestamp[i] != -1 && buf->pages[i].address.FD == FD) {
+         buf->cache_timestamp[i] = -1;
+         buf->numCacheOccupied--;
+      }
+   }
+}
