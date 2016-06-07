@@ -127,6 +127,8 @@ RecordField operator%(const RecordField r1, const RecordField r2) {
    return RecordField(r1.iVal % r2.iVal);
 }
 
+Record::Record() {}
+
 Record::Record(char bytes[], RecordDesc recordDesc, DiskAddress page, int ndx) :
       recordDesc(recordDesc), page(page), ndx(ndx) {
    int byte = 0;

@@ -17,5 +17,6 @@
 #include "FLOPPYCreateColumn.h"
 #include "FLOPPYPrimaryKey.h"
 #include "FLOPPYForeignKey.h"
+#include "FLOPPYTableAttribute.h"
 
 #endif /* __STATEMENTS_H__  */

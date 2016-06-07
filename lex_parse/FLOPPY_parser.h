@@ -135,6 +135,7 @@ union YYSTYPE
    FLOPPYSelectItem *select_item;
    FLOPPYTableSpec *table_spec;
    FLOPPYGroupBy *group_by;
+   FLOPPYTableAttribute *table_attribute;
 
    std::vector<char *> *str_vec;
    std::vector<FLOPPYCreateColumn *> *create_column_vec;
@@ -142,6 +143,7 @@ union YYSTYPE
    std::vector<FLOPPYValue *> *value_vec;
    std::vector<FLOPPYSelectItem *> *select_item_vec;
    std::vector<FLOPPYTableSpec *> *table_spec_vec;
+   std::vector<FLOPPYTableAttribute *> *table_attr_vec;
    CreateTableAdditionalFunctionality *flags;
 
    FLOPPYCreateColumn *create_column;
@@ -150,7 +152,7 @@ union YYSTYPE
    FLOPPYValue *value;
    FLOPPYNode *node;
 
-#line 154 "FLOPPY_parser.h" /* yacc.c:1915  */
+#line 156 "FLOPPY_parser.h" /* yacc.c:1915  */
 };
 
 typedef union YYSTYPE YYSTYPE;

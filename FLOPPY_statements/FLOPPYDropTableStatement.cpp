@@ -5,5 +5,5 @@ FLOPPYDropTableStatement::FLOPPYDropTableStatement() :
 }
 
 FLOPPYDropTableStatement::~FLOPPYDropTableStatement() {
-
+   delete this->table;
 }

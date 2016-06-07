@@ -60,6 +60,7 @@ typedef void* yyscan_t;
    FLOPPYSelectItem *select_item;
    FLOPPYTableSpec *table_spec;
    FLOPPYGroupBy *group_by;
+   FLOPPYTableAttribute *table_attribute;
 
    std::vector<char *> *str_vec;
    std::vector<FLOPPYCreateColumn *> *create_column_vec;
@@ -67,6 +68,7 @@ typedef void* yyscan_t;
    std::vector<FLOPPYValue *> *value_vec;
    std::vector<FLOPPYSelectItem *> *select_item_vec;
    std::vector<FLOPPYTableSpec *> *table_spec_vec;
+   std::vector<FLOPPYTableAttribute *> *table_attr_vec;
    CreateTableAdditionalFunctionality *flags;
 
    FLOPPYCreateColumn *create_column;
@@ -106,6 +108,7 @@ typedef void* yyscan_t;
 %type <select_item>              select_item
 %type <table_spec>               table_spec
 %type <group_by>                 opt_group_by
+%type <table_attribute>          table_attribute
 
 %type <primary_key>              primary_key
 %type <foreign_key>              foreign_key
@@ -113,10 +116,11 @@ typedef void* yyscan_t;
 
 %type <create_column_vec>        column_def_commalist
 %type <foreign_key_vec>          opt_foreign_key_list
-%type <str_vec>                  attribute_list opt_order_by
+%type <str_vec>                  attribute_list
 %type <value_vec>                value_list
 %type <select_item_vec>          select_item_list star_or_select_item_list
 %type <table_spec_vec>           table_spec_list
+%type <table_attr_vec>           table_attribute_list opt_order_by
 
 /*********************
  * Precendence 
@@ -296,7 +300,7 @@ opt_column_size:
 
 int_literal:
       INTVAL { 
-         $$ = $1;
+         $$ = $1; 
       }
    ;
 
@@ -521,10 +525,10 @@ expression:
    ;
 
 atomic_expression:
-      ID {
+   table_attribute {
          $$ = new FLOPPYNode(ValueNode);
-         $$->value = new FLOPPYValue(AttributeValue);
-         $$->value->sVal = $1;
+         $$->value = new FLOPPYValue(TableAttributeValue);
+         $$->value->tableAttribute = $1;
       }
    |  constant {
          $$ = new FLOPPYNode(ValueNode);
@@ -632,14 +636,9 @@ select_item_list:
    ;
 
 select_item:
-      ID {
-         $$ = new FLOPPYSelectItem(FLOPPYSelectItemType::AttributeType);
-         $$->attribute = $1;
-      }
-   |  ID '.' ID {
+   table_attribute {
          $$ = new FLOPPYSelectItem(FLOPPYSelectItemType::TableAttributeType);
-         $$->tableAttribute.tableName = $1;
-         $$->tableAttribute.attribute = $3;
+         $$->tableAttribute = $1;
       }
    |  COUNT '(' ID ')' {
          $$ = new FLOPPYSelectItem(FLOPPYSelectItemType::AggregateType);
@@ -722,7 +721,7 @@ opt_where:
    ;
 
 opt_group_by:
-      GROUP BY attribute_list
+      GROUP BY table_attribute_list
       opt_having {
          $$ = new FLOPPYGroupBy();
          $$->groupByAttributes = $3;
@@ -743,7 +742,7 @@ opt_having:
    ;
 
 opt_order_by:
-      ORDER BY attribute_list {
+      ORDER BY table_attribute_list {
          $$ = $3;
       }
    |  /* empty */ { 
@@ -757,6 +756,30 @@ opt_limit:
       }
    |	/* empty */ { 
          $$ = -1;
+      }
+   ;
+
+table_attribute_list:
+   table_attribute {
+         $$ = new std::vector<FLOPPYTableAttribute *>();
+         $$->push_back($1);
+      }
+   |  table_attribute_list ',' table_attribute {
+         $$ = $1;
+         $$->push_back($3);
+      }
+   ;
+
+table_attribute:
+      ID {
+         $$ = new FLOPPYTableAttribute();
+         $$->tableName = NULL;
+         $$->attribute = $1;
+      }
+   |  ID '.' ID {
+         $$ = new FLOPPYTableAttribute();
+         $$->tableName = $1;
+         $$->attribute = $3;
       }
    ;
 

@@ -4,6 +4,7 @@
 #include "FLOPPYAggregate.h"
 
 class FLOPPYValue;
+class FLOPPYTableAttribute;
 
 typedef enum {
    AttributeType,
@@ -19,10 +20,7 @@ class FLOPPYSelectItem {
 
       union {
          char *attribute;
-         struct {
-            char *tableName;
-            char *attribute;
-         } tableAttribute;
+         FLOPPYTableAttribute *tableAttribute;
          struct {
             FLOPPYAggregateOperator op;
             FLOPPYValue *value;

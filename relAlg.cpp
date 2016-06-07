@@ -1,11 +1,10 @@
 #include <algorithm>
 #include <sstream>
 #include <cstring>
+#include <cfloat>
 #include "heap.h"
 #include "main.h"
 #include "relAlg.h"
-#include "TupleIterator.h"
-#include "FLOPPY_statements/statements.h"
 
 /* This file contains implementations of relational algebra operations. */
 
@@ -13,6 +12,11 @@
 // Creates a new temporary heap file and return the file descriptor. Puts the
 // name of the temporary file into filename.
 fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc);
+
+// Find an attribute that may or may not have the table name prepended.
+RecordField findAttrInRecord(Record *record, const char *attr);
+
+Field findAttrInRecordDesc(RecordDesc recordDesc, char *attr);
 
 // Returns true if the given record satisfies the given boolean condition.
 bool checkCondition(Record *record, FLOPPYNode *cond);
@@ -129,7 +133,7 @@ int selectScan(fileDescriptor inTable, FLOPPYNode *cond, fileDescriptor *outTabl
    }
 }
 
-int project(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *outTable) {
+int project(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable) {
    char *outFile;
    DiskAddress temp;
    RecordDesc oldRecordDesc, newRecordDesc;
@@ -140,16 +144,31 @@ int project(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *
    // the output temp table.
    newRecordDesc.numFields = (int)attributes->size();
    for (int i = 0; i < newRecordDesc.numFields; i++) {
-      strcpy(newRecordDesc.fields[i].name, attributes->at(i));
-      Field field;
-      for (int j = 0; j < oldRecordDesc.numFields; j++) {
-         if (!strcmp(newRecordDesc.fields[i].name, oldRecordDesc.fields[j].name)) {
-            field = oldRecordDesc.fields[j];
-            break;
+      FLOPPYTableAttribute *t = attributes->at(i);
+
+      if (t->tableName) {
+         strcpy(newRecordDesc.fields[i].name, (string(t->tableName) + "." + t->attribute).c_str());
+
+         for (int j = 0; j < oldRecordDesc.numFields; j++) {
+            if (!strcmp(newRecordDesc.fields[i].name, oldRecordDesc.fields[j].name)) {
+               newRecordDesc.fields[i].size = oldRecordDesc.fields[j].size;
+               newRecordDesc.fields[i].type = oldRecordDesc.fields[j].type;
+               break;
+            }
          }
       }
-      newRecordDesc.fields[i].size = field.size;
-      newRecordDesc.fields[i].type = field.type;
+      else {
+         strcpy(newRecordDesc.fields[i].name, t->attribute);
+
+         for (int j = 0; j < oldRecordDesc.numFields; j++) {
+            string oldName = oldRecordDesc.fields[j].name;
+            if (t->attribute == oldName.substr(oldName.find('.') + 1)) {
+               newRecordDesc.fields[i].size = oldRecordDesc.fields[j].size;
+               newRecordDesc.fields[i].type = oldRecordDesc.fields[j].type;
+               break;
+            }
+         }
+      }
    }
 
    *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
@@ -157,16 +176,28 @@ int project(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *
    TupleIterator iter(inTable);
 
    for (Record *record = iter.next(); record; record = iter.next()) {
-      // Remove any fields from this tuple that aren't included in attributes
-      for (auto fIter = record->fields.begin(), next = fIter;
-           fIter != record->fields.end(); fIter = next) {
-         next++;
-         if (find(attributes->begin(), attributes->end(), fIter->first) == attributes->end()) {
-            record->fields.erase(fIter);
+      Record newRecord;
+
+      for (auto aIter = attributes->begin(); aIter != attributes->end(); aIter++) {
+         if ((*aIter)->tableName) {
+            for (auto fIter = record->fields.begin(); fIter != record->fields.end(); fIter++) {
+               if (fIter->first == string((*aIter)->tableName) + "." + (*aIter)->attribute) {
+                  newRecord.fields[fIter->first] = fIter->second;
+                  break;
+               }
+            }
+         }
+         else {
+            for (auto fIter = record->fields.begin(); fIter != record->fields.end(); fIter++) {
+               if (fIter->first.substr(fIter->first.find('.') + 1) == (*aIter)->attribute) {
+                  newRecord.fields[(*aIter)->attribute] = fIter->second;
+                  break;
+               }
+            }
          }
       }
 
-      insertRecord(buffer, outFile, record->getBytes(newRecordDesc), &temp);
+      insertRecord(buffer, outFile, newRecord.getBytes(newRecordDesc), &temp);
    }
 }
 
@@ -175,32 +206,29 @@ int duplicateElimination(fileDescriptor inTable, fileDescriptor *outTable) {
 }
 
 int product(fileDescriptor inTable1, fileDescriptor inTable2, fileDescriptor *outTable) {
-   joinNestedLoops(inTable1, inTable2, NULL, outTable);
+   //joinNestedLoops(inTable1, inTable2, NULL, outTable);
+   joinOnePass(inTable1, inTable2, NULL, outTable);
+   // TODO change back to joinNestedLoops
 }
 
 /*appends all of record1's fields to record2*/
-int combineRecords(Record *rec1, Record *rec2) {
+void combineRecords(Record *rec1, Record *rec2) {
    for (auto fIter = rec1->fields.begin(); fIter != rec1->fields.end(); fIter++) {
       rec2->fields[fIter->first] = fIter->second;
    }
-   return 0;
 }
 
 int joinOnePass(fileDescriptor inTable1, fileDescriptor inTable2,
                 FLOPPYNode *condition, fileDescriptor *outTable) {
-   // TODO
-   // justin please check this entire function [pierson]
-   
    char *outFile;
    DiskAddress temp;
    RecordDesc oldRecordDesc1, oldRecordDesc2, newRecordDesc;
    int numBlocksT1, numBlocksT2, i, j;
-   Record newRecord;
-   
+
    // swap(inTable1, inTable2) if necessary to make it so table 1 is the bigger one
    // (the table with bigger numBlocks)
-   heapHeaderGetNumBlocks(inTable1, &numBlocksT1);
-   heapHeaderGetNumBlocks(inTable2, &numBlocksT2);
+   heapHeaderGetNumBlocks(buffer, inTable1, &numBlocksT1);
+   heapHeaderGetNumBlocks(buffer, inTable2, &numBlocksT2);
    
    if (numBlocksT1 < numBlocksT2)
       swap(inTable1, inTable2);
@@ -209,13 +237,13 @@ int joinOnePass(fileDescriptor inTable1, fileDescriptor inTable2,
    heapHeaderGetRecordDesc(buffer, inTable2, &oldRecordDesc2);
    
    // forms newRecordDesc by combining the fields from oldRecordDesc1 and oldRecordDesc2 (all of oldRecordDesc1 stuff comes AFTER oldRecordDesc2 stuff in newRecordDesc)
-   newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
+   newRecordDesc.numFields = oldRecordDesc1.numFields + oldRecordDesc2.numFields;
    for (i = 0; i < oldRecordDesc2.numFields; i++) {
-      strcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(fields));
+      memcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(Field));
    }
    j = i;
-   for (i = 0; i < oldRecordDesc1.numFields; i++) {
-      strcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(fields));
+   for (i = 0; i < oldRecordDesc1.numFields; i++, j++) {
+      memcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(Field));
    }
    
    *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
@@ -225,10 +253,10 @@ int joinOnePass(fileDescriptor inTable1, fileDescriptor inTable2,
    // Iterate through all tuples, outputting those that match the given condition
    for (Record *record1 = iter1.next(); record1; record1 = iter1.next()) {
       TupleIterator iter2(inTable2);
-      for (Record *record2 = iter2.next(); record2; record2 = iter2.next() {
+      for (Record *record2 = iter2.next(); record2; record2 = iter2.next()) {
          combineRecords(record1, record2);
             
-         if (checkCondition(record2, condition)
+         if (checkCondition(record2, condition))
             insertRecord(buffer, outFile, record2->getBytes(newRecordDesc), &temp); 
       }      
    }   
@@ -245,12 +273,10 @@ int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
    DiskAddress temp;
    RecordDesc oldRecordDesc1, oldRecordDesc2, newRecordDesc;
    int numBlocksT1, numBlocksT2, i, j;
-   
-   // TODO swap(inTable1, inTable2) if necessary to make it so table 1 is the bigger one
-   // (the table with bigger numBlocks)
-   // justin double check this [pierson]
-   heapHeaderGetNumBlocks(inTable1, &numBlocksT1);
-   heapHeaderGetNumBlocks(inTable2, &numBlocksT2);
+
+   // make inTable1 be the bigger table
+   heapHeaderGetNumBlocks(buffer, inTable1, &numBlocksT1);
+   heapHeaderGetNumBlocks(buffer, inTable2, &numBlocksT2);
    
    if (numBlocksT1 < numBlocksT2)
       swap(inTable1, inTable2);
@@ -261,15 +287,15 @@ int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
    // TODO form newRecordDesc by combining the fields from oldRecordDesc1 and oldRecordDesc2
    // justin double check this [pierson]
    //copies oldRecordDesc2 stuff into newRecordDesc
-   newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
-   for (i = 0; i < oldRecordDesc2.numFields; i++) {
-      strcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(fields));
-   }
-   //copies oldRecordDesc1 stuff into newRecordDesc after oldRecordDesc2's stuff
-   j = i;
-   for (i = 0; i < oldRecordDesc1.numFields; i++) {
-      strcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(fields));
-   }
+   //newRecordDesc.numFields = (int)(oldRecordDesc1.numFields + oldRecordDesc2.numFields);
+   //for (i = 0; i < oldRecordDesc2.numFields; i++) {
+   //   strcpy(newRecordDesc.fields + i, oldRecordDesc2.fields + i, sizeof(fields));
+   //}
+   ////copies oldRecordDesc1 stuff into newRecordDesc after oldRecordDesc2's stuff
+   //j = i;
+   //for (i = 0; i < oldRecordDesc1.numFields; i++) {
+   //   strcpy(newRecordDesc.fields + j, oldRecordDesc1.fields + i, sizeof(fields));
+   //}
    
    *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
 
@@ -280,86 +306,212 @@ int joinNestedLoops(fileDescriptor inTable1, fileDescriptor inTable2,
    // for each group of (M - 1) blocks of table 2:
    //    for each tuple in table 1:
    //       join with each tuple in the current group of (M - 1) blocks
-   //
-   // When checking tuples against the join condition, only actually call checkCondition if
-   // condition is not NULL. If condition is NULL, include every tuple without checking. This
-   // is because
 }
 
-int groupOnePass(fileDescriptor inTable, vector<char *> *group,
+static vector<AggResult> initAggResults(vector<Aggregate> *aggregates,
+                                 RecordDesc recordDesc) {
+   vector<AggResult> aggResults;
+   for (int i = 0; i < aggregates->size(); i++) {
+      switch (aggregates->at(i).op) {
+         case CountAggregate:
+         case CountStarAggregate:
+            aggResults.push_back(RecordField(0));
+            break;
+         case MaxAggregate:
+            if (recordDesc.fields[i].type == INT)
+               aggResults.push_back(RecordField(INT32_MIN));
+            else
+               aggResults.push_back(RecordField(FLOAT, DBL_MIN));
+            break;
+         case MinAggregate:
+            if (recordDesc.fields[i].type == INT)
+               aggResults.push_back(RecordField(INT32_MAX));
+            else
+               aggResults.push_back(RecordField(FLOAT, DBL_MAX));
+            break;
+         default:
+            if (recordDesc.fields[i].type == INT)
+               aggResults.push_back(RecordField(0));
+            else
+               aggResults.push_back(RecordField(FLOAT, 0.0));
+            break;
+      }
+   }
+
+   return aggResults;
+}
+
+static void updateAggResults(vector<AggResult> &aggResults, Record *record,
+                             vector<Aggregate> *aggregates, RecordDesc newRecordDesc) {
+   for (int i = 0; i < aggregates->size(); i++) {
+      switch (aggregates->at(i).op) {
+         case CountAggregate:
+         case CountStarAggregate:
+            aggResults[i].field.iVal++;
+            break;
+         case MaxAggregate:
+            if (newRecordDesc.fields[i].type == INT)
+               aggResults[i].field.iVal =
+                     max(aggResults[i].field.iVal,
+                         findAttrInRecord(record, aggregates->at(i).attr).iVal);
+            else
+               aggResults[i].field.fVal =
+                     max(aggResults[i].field.fVal,
+                         findAttrInRecord(record, aggregates->at(i).attr).fVal);
+            break;
+         case MinAggregate:
+            if (newRecordDesc.fields[i].type == INT)
+               aggResults[i].field.iVal =
+                     min(aggResults[i].field.iVal,
+                         findAttrInRecord(record, aggregates->at(i).attr).iVal);
+            else
+               aggResults[i].field.fVal =
+                     min(aggResults[i].field.fVal,
+                         findAttrInRecord(record, aggregates->at(i).attr).fVal);
+            break;
+         case SumAggregate:
+            if (newRecordDesc.fields[i].type == INT)
+               aggResults[i].field.iVal += findAttrInRecord(record, aggregates->at(i).attr).iVal;
+            else
+               aggResults[i].field.fVal += findAttrInRecord(record, aggregates->at(i).attr).fVal;
+            break;
+         case AverageAggregate:
+            if (newRecordDesc.fields[i].type == INT)
+               aggResults[i].field.iVal += findAttrInRecord(record, aggregates->at(i).attr).iVal;
+            else
+               aggResults[i].field.fVal += findAttrInRecord(record, aggregates->at(i).attr).fVal;
+            aggResults[i].count++;
+            break;
+      }
+   }
+}
+
+static void addAggsToRecord(Record &record, vector<AggResult> &aggResults,
+                            vector<Aggregate> *aggregates, RecordDesc newRecordDesc) {
+   for (int i = 0; i < aggregates->size(); i++) {
+      if (aggregates->at(i).op == AverageAggregate) {
+         if (newRecordDesc.fields[i].type == INT)
+            aggResults[i].field.iVal /= aggResults[i].count;
+         else
+            aggResults[i].field.fVal /= aggResults[i].count;
+      }
+      record.fields[aggregates->at(i).toString()] = aggResults[i].field;
+   }
+}
+
+// Note: group can be null, to signify aggregation with no group by clause.
+int groupOnePass(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *group,
                  vector<Aggregate> *aggregates, fileDescriptor *outTable) {
-   // TODO
-   // justin please check this
    char *outFile;
    DiskAddress temp;
-   RecordDesc recordDesc;
-   map<vector<RecordField>, map<Aggregate, RecordField> grouping;
-   
-   heapHeaderGetRecordDesc(buffer, inTable, &recordDesc);
+   RecordDesc oldRecordDesc, newRecordDesc;
 
-   // can just reuse recordDesc for new file because output tuples have same structure
-   *outTable = makeTempTable(buffer, &outFile, recordDesc);
+   heapHeaderGetRecordDesc(buffer, inTable, &oldRecordDesc);
+
+   // Make newRecordDesc
+   newRecordDesc.numFields = (group ? group->size() : 0) + aggregates->size();
+
+   int i = 0, j;
+   if (group) {
+      for (; i < group->size(); i++) {
+         FLOPPYTableAttribute *t = group->at(i);
+
+         if (t->tableName) {
+            strcpy(newRecordDesc.fields[i].name, (string(t->tableName) + "." + t->attribute).c_str());
+
+            for (j = 0; j < oldRecordDesc.numFields; j++) {
+               if (!strcmp(newRecordDesc.fields[i].name, oldRecordDesc.fields[j].name)) {
+                  newRecordDesc.fields[i].size = oldRecordDesc.fields[j].size;
+                  newRecordDesc.fields[i].type = oldRecordDesc.fields[j].type;
+                  break;
+               }
+            }
+         }
+         else {
+            strcpy(newRecordDesc.fields[i].name, t->attribute);
+
+            for (j = 0; j < oldRecordDesc.numFields; j++) {
+               string oldName = oldRecordDesc.fields[j].name;
+               if (t->attribute == oldName.substr(oldName.find('.') + 1)) {
+                  newRecordDesc.fields[i].size = oldRecordDesc.fields[j].size;
+                  newRecordDesc.fields[i].type = oldRecordDesc.fields[j].type;
+                  break;
+               }
+            }
+         }
+      }
+   }
+   j = i;
+   for (i = 0; i < aggregates->size(); i++, j++) {
+      strcpy(newRecordDesc.fields[j].name, aggregates->at(i).toString().c_str());
+      if (aggregates->at(i).op == CountAggregate || aggregates->at(i).op == CountStarAggregate) {
+         newRecordDesc.fields[j].size = 4;
+         newRecordDesc.fields[j].type = INT;
+      }
+      else {
+         Field field = findAttrInRecordDesc(oldRecordDesc, aggregates->at(i).attr);
+         newRecordDesc.fields[j].size = field.size;
+         newRecordDesc.fields[j].type = field.type;
+      }
+   }
+
+   *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
 
    TupleIterator iter(inTable); // open an iterator on input file
 
-   // Iterate through all tuples, outputting those that match the given condition
-   for (Record *record = iter.next(); record; record = iter.next()) {
-      vector<RecordField> key;
-      map<Aggregate, RecordField> value
-      
-      //iter through attributes of current tuple
-      for (auto fIter = record->fields.begin(); fIter != record->fields.end(); fIter++) {
-         //checks if curr attribute is part of grouping
-         if(find(group->begin(), group->end(), fIter->first) != group->end())
-            key.push_back(fIter->second); //add the attribute's value to key vector 
-      
-         //check if have the necessary attributes for grouping
-         if(key.size() == group->size()) 
-            break;
-      }
-      //not in map yet, create new value map and make key-value 
-      if (grouping.count(key) == 0) {
-          //iter through list of Aggregates needed
-          for (auto vIter = aggregates.begin(); vIter != aggregates.end(); vIter++) {
-            if ((*vIter).op == CountAggregate) {
-               value[//HERE TO DO
-            }
-            else if ((*vIter).op == CountStarAggregate) {
-            }
-            else if ((*vIter).op == AverageAggregate) {
-            }
-            else if ((*vIter).op == MinAggregate) {
-            }
-            else if ((*vIter).op == MaxAggregate) {
-            }
-            else if ((*vIter).op == SumAggregate) {
-            }
-   
-} FLOPPYAggregateOperator;
-          }
-      }
-      //key already exists
-      else {
-         
-      }
-      
-      find(vec->begin(), vec->end(), str) != vec->end()
-         if (find(attributes->begin(), attributes->end(), fIter->first) == attributes->end()) {
-            record->fields.erase(fIter);
+   if (!group) {
+      vector<AggResult> aggResults = initAggResults(aggregates, newRecordDesc);
+
+      for (Record *record = iter.next(); record; record = iter.next())
+         updateAggResults(aggResults, record, aggregates, newRecordDesc);
+
+      Record record;
+      addAggsToRecord(record, aggResults, aggregates, newRecordDesc);
+
+      insertRecord(buffer, outFile, record.getBytes(newRecordDesc), &temp);
+   }
+   else {
+      map<vector<RecordField>, vector<AggResult>> groups;
+
+      for (Record *record = iter.next(); record; record = iter.next()) {
+         vector<RecordField> groupValues;
+
+         for (i = 0; i < group->size(); i++) {
+            string name(group->at(i)->tableName ?
+                        string(group->at(i)->tableName) + "." + group->at(i)->attribute :
+                        group->at(i)->attribute);
+            groupValues.push_back(findAttrInRecord(record, name.c_str()));
          }
+
+         if (!groups.count(groupValues))
+            groups[groupValues] = initAggResults(aggregates, newRecordDesc);
+
+         updateAggResults(groups[groupValues], record, aggregates, newRecordDesc);
       }
 
-      insertRecord(buffer, outFile, record->getBytes(newRecordDesc), &temp);
+      for (auto gIter = groups.begin(); gIter != groups.end(); gIter++) {
+         Record record;
+
+         for (i = 0; i < gIter->first.size(); i++) {
+            string name(group->at(i)->tableName ?
+                        string(group->at(i)->tableName) + "." + group->at(i)->attribute :
+                        group->at(i)->attribute);
+            record.fields[name] = gIter->first[i];
+         }
+
+         addAggsToRecord(record, gIter->second, aggregates, newRecordDesc);
+
+         insertRecord(buffer, outFile, record.getBytes(newRecordDesc), &temp);
+      }
    }
-   
 }
 
-int groupMultiPass(fileDescriptor inTable, vector<char *> *group,
+int groupMultiPass(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *group,
                    vector<Aggregate> *aggregates, fileDescriptor *outTable) {
    // TODO
 }
 
-int sortTable(fileDescriptor inTable, vector<char *> *attributes, fileDescriptor *outTable) {
+int sortTable(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable) {
    // TODO
 }
 
@@ -391,13 +543,54 @@ fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc
    return createHeapFile(buf, *filename, recordDesc, false);
 }
 
+// Find an attribute that may not have the table name prepended.
+RecordField findAttrInRecord(Record *record, const char *attr) {
+   for (auto iter = record->fields.begin(); iter != record->fields.end(); iter++) {
+      if (iter->first == attr ||
+            iter->first.substr(iter->first.find('.') + 1) == attr)
+         return iter->second;
+   }
+}
+
+Field findAttrInRecordDesc(RecordDesc recordDesc, char *attr) {
+   for (int i = 0; i < recordDesc.numFields; i++) {
+      string name = recordDesc.fields[i].name;
+      if (name == attr ||
+            name.substr(name.find('.') + 1) == attr)
+         return recordDesc.fields[i];
+   }
+}
+
+string Aggregate::toString() {
+   switch (op) {
+      case CountAggregate:
+         return string("COUNT(") + attr + ")";
+      case CountStarAggregate:
+         return "COUNT(*)";
+      case AverageAggregate:
+         return string("AVG(") + attr + ")";
+      case MinAggregate:
+         return string("MIN(") + attr + ")";
+      case MaxAggregate:
+         return string("MAX(") + attr + ")";
+      case SumAggregate:
+         return string("SUM(") + attr + ")";
+   }
+}
+
 RecordField evalExpr(Record *record, FLOPPYNode *expr) {
    if (expr->_type == ValueNode) {
+      FLOPPYTableAttribute *t;
       switch (expr->value->type()) {
          case AttributeValue:
-            return record->fields[expr->value->sVal];
+            return findAttrInRecord(record, expr->value->sVal);
+         case TableAttributeValue:
+            t = expr->value->tableAttribute;
+            if (t->tableName)
+               return record->fields[string(t->tableName) + "." + t->attribute];
+            return findAttrInRecord(record, t->attribute);
          case StringValue:
-            return RecordField(expr->value->sVal);
+            return RecordField(string(expr->value->sVal));
          case IntValue:
             return RecordField((int)expr->value->iVal);
          case FloatValue:
@@ -407,27 +600,10 @@ RecordField evalExpr(Record *record, FLOPPYNode *expr) {
       }
    }
    else if (expr->_type == AggregateNode) {
-      string str;
-      switch (expr->aggregate.op) {
-         case CountAggregate:
-            str = string("COUNT(") + expr->aggregate.value->sVal + ")";
-            break;
-         case CountStarAggregate:
-            str = "COUNT(*)";
-            break;
-         case AverageAggregate:
-            str = string("AVG(") + expr->aggregate.value->sVal + ")";
-            break;
-         case MinAggregate:
-            str = string("MIN(") + expr->aggregate.value->sVal + ")";
-            break;
-         case MaxAggregate:
-            str = string("MAX(") + expr->aggregate.value->sVal + ")";
-            break;
-         case SumAggregate:
-            str = string("SUM(") + expr->aggregate.value->sVal + ")";
-      }
-      return record->fields[str];
+      return record->fields[
+            Aggregate(expr->aggregate.op,
+                      expr->aggregate.value ? expr->aggregate.value->sVal : NULL)
+                  .toString()];
    }
    else {
       switch (expr->node.op) {

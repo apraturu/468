@@ -4,5 +4,6 @@ FLOPPYDropIndexStatement::FLOPPYDropIndexStatement() : FLOPPYStatement(DropIndex
 
 }
 FLOPPYDropIndexStatement::~FLOPPYDropIndexStatement() {
-
+   delete indexName;
+   delete tableName;
 }

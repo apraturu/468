@@ -1,9 +1,12 @@
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include "bufferManager.h"
 #include "heap.h"
 #include "readWriteLayer.h"
 #include "FLOPPY_statements/statements.h"
+
+using namespace std;
 
 int sizeOfRecordDesc(RecordDesc recordDesc) {
    int size = 0;
@@ -178,6 +181,10 @@ int heapHeaderIncrementNumBlocks(Buffer *buf, int fd) {
       return -1;
       
    header->numBlocks++;
+
+   DiskAddress addr;
+   addr.FD = fd;
+   addr.pageId = 0;
    write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
@@ -186,8 +193,12 @@ int heapHeaderIncrementNumTuples(Buffer *buf, int fd) {
    HeapFileHeader *header = getFileHeader(buf, fd);
    if (!header)
       return -1;
-      
+
    header->numTuples++;
+
+   DiskAddress addr;
+   addr.FD = fd;
+   addr.pageId = 0;
    write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
@@ -198,6 +209,10 @@ int heapHeaderDecrementNumTuples(Buffer *buf, int fd) {
       return -1;
    
    header->numTuples--;
+
+   DiskAddress addr;
+   addr.FD = fd;
+   addr.pageId = 0;
    write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
    return 0;
 }
@@ -256,7 +271,7 @@ int pHGetBitmap(Buffer *buf, DiskAddress page, char *bitmap) {
    if (!header)
       return -1;
 
-   int bitmapSize = header->maxRecords / 8;
+   int bitmapSize = header->maxRecords / 8 + 1;
    memcpy(bitmap, read(buf, page, sizeof(HeapPageHeader), bitmapSize), bitmapSize);
    return 0;
 }
@@ -314,7 +329,7 @@ int pHSetBitmapTrue(Buffer *buf, DiskAddress page, int index) {
    if (!header)
       return -1;
 
-   int bitmapSize = header->maxRecords / 8;
+   int bitmapSize = header->maxRecords / 8 + 1;
    char *bitmap = read(buf, page, sizeof(HeapPageHeader), bitmapSize);
    bitmap[index / 8] |= 0x80 >> (index % 8);
 
@@ -326,7 +341,7 @@ int pHSetBitmapFalse(Buffer *buf, DiskAddress page, int index) {
    if (!header)
       return -1;
 
-   int bitmapSize = header->maxRecords / 8;
+   int bitmapSize = header->maxRecords / 8 + 1;
    char *bitmap = read(buf, page, sizeof(HeapPageHeader), bitmapSize);
    bitmap[index / 8] &= ~(0x80 >> (index % 8));
 
@@ -424,11 +439,13 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
       header.nextFree = -1; // set new page's nextFree to -1 because no other free pages
 
       writePersistent(buf, page, 0, sizeof(HeapPageHeader), (char *)&header, sizeof(HeapPageHeader));
+
+      heapHeaderIncrementNumBlocks(buf, fd);
    }
 
    int maxRecords;
    pHGetMaxRecords(buf, page, &maxRecords);
-   char *bitmap = (char *)malloc(maxRecords / 8), *byte = bitmap;
+   char *bitmap = (char *)malloc(maxRecords / 8 + 1);
    pHGetBitmap(buf, page, bitmap);
 
    int recordNdx;
@@ -436,18 +453,6 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
       if (!bitmapIsSet(bitmap, recordNdx))
          break;
    }
-   //int recordNdx = 0;
-   //int mask;
-   //while (recordNdx < maxRecords) {
-   //   mask = 0x80 >> (recordNdx % 8);
-
-   //   if (mask & *byte == 0)
-   //      break;
-
-   //   recordNdx++;
-   //   if (recordNdx % 8 == 0)
-   //      byte++;
-   //}
 
    if (recordNdx == maxRecords)
       return -1;
@@ -457,19 +462,6 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
    pHSetBitmapTrue(buf, page, recordNdx);
    pHIncrementNumRecords(buf, page);
 
-   // check if page is full now
-   //int i = recordNdx + 1;
-   //while (i < maxRecords) {
-   //   mask = 0x80 >> (i % 8);
-
-   //   if (mask & *byte == 0)
-   //      break;
-
-   //   i++;
-   //   if (i % 8 == 0)
-   //      byte++;
-   //}
-   //if (i == maxRecords) { // page is now full
    int x, y;
    pHGetMaxRecords(buf, page, &x);
    pHGetNumRecords(buf, page, &y);
@@ -478,6 +470,8 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
       pHGetNextFree(buf, page, &nextFree);
       heapHeaderSetFreeSpace(buf, fd, nextFree.pageId);
    }
+
+   heapHeaderIncrementNumTuples(buf, fd);
 
    return putRecord(buf, page, recordNdx, record);  
 }
@@ -504,6 +498,8 @@ int deleteRecord(Buffer *buf, DiskAddress page, int recordId) {
 
    pHSetBitmapFalse(buf, page, recordId);
    pHDecrementNumRecords(buf, page);
+
+   heapHeaderDecrementNumTuples(buf, page.FD);
 
    return 0;
 }

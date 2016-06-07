@@ -35,10 +35,10 @@ struct QueryPlan {
       char *strVal;
       int intVal;
       FLOPPYNode *cond;
-      vector<char *> *attList;
+      vector<FLOPPYTableAttribute *> *attList;
 
       struct {
-         vector<char *> *groupBy;
+         vector<FLOPPYTableAttribute *> *groupBy;
          vector<Aggregate> *aggregates;
       } grouping;
    //};
@@ -60,7 +60,8 @@ vector<Aggregate> *getAggsFromCondition(FLOPPYNode *node) {
       }
    }
    else if (node->_type == AggregateNode) {
-      aggs->push_back(Aggregate(node->aggregate.op, node->aggregate.value->sVal));
+      aggs->push_back(Aggregate(node->aggregate.op,
+                                node->aggregate.value ? node->aggregate.value->sVal : NULL));
    }
 
    return aggs;
@@ -103,6 +104,7 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
    }
 
    // Process GROUP BY and HAVING clauses
+   bool aggsWithoutGroup = false;
    if (stm->groupBy) {
       temp = plan;
       plan = new QueryPlan;
@@ -114,7 +116,8 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       for (auto iter = stm->selectItems->begin(); iter != stm->selectItems->end(); iter++) {
          if ((*iter)->_type == AggregateType) {
             plan->grouping.aggregates->push_back(
-                    Aggregate((*iter)->aggregate.op, (*iter)->aggregate.value->sVal));
+                    Aggregate((*iter)->aggregate.op,
+                              (*iter)->aggregate.value ? (*iter)->aggregate.value->sVal : NULL));
          }
       }
       plan->left = temp;
@@ -133,11 +136,13 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       vector<Aggregate> *aggs = new vector<Aggregate>;
       for (auto iter = stm->selectItems->begin(); iter != stm->selectItems->end(); iter++) {
          if ((*iter)->_type == AggregateType) {
-            aggs->push_back(Aggregate((*iter)->aggregate.op, (*iter)->aggregate.value->sVal));
+            aggs->push_back(Aggregate((*iter)->aggregate.op,
+                                      (*iter)->aggregate.value ? (*iter)->aggregate.value->sVal : NULL));
          }
       }
 
       if (!aggs->empty()) {
+         aggsWithoutGroup = true;
          temp = plan;
          plan = new QueryPlan;
          plan->type = GROUP;
@@ -159,44 +164,33 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
    }
    
    // Process SELECT clause
-   // if select *, don't do a projection
-   if (stm->selectItems->at(0)->_type != StarType) {
+   // if select * or if only aggregates with no group by, don't bother with a projection
+   if (!aggsWithoutGroup && stm->selectItems->at(0)->_type != StarType) {
       temp = plan;
       plan = new QueryPlan;
       plan->type = PROJECT;
-      plan->attList = new vector<char *>;
+      plan->attList = new vector<FLOPPYTableAttribute *>;
       for (auto iter = stm->selectItems->begin(); iter != stm->selectItems->end(); iter++) {
-         string *str = new string;
+         FLOPPYTableAttribute *attr;
          switch ((*iter)->_type) {
             case AttributeType:
-               *str = (*iter)->attribute;
+               attr = new FLOPPYTableAttribute;
+               attr->attribute = (*iter)->attribute;
+               attr->tableName = NULL;
                break;
             case TableAttributeType:
-               *str = string((*iter)->tableAttribute.tableName) + "." +
-                       (*iter)->tableAttribute.attribute;
+               attr = (*iter)->tableAttribute;
                break;
             case AggregateType:
-               switch ((*iter)->aggregate.op) {
-                  case CountAggregate:
-                     *str = string("COUNT(") + (*iter)->aggregate.value->sVal + ")";
-                       break;
-                  case CountStarAggregate:
-                     *str = "COUNT(*)";
-                       break;
-                  case AverageAggregate:
-                     *str = string("AVG(") + (*iter)->aggregate.value->sVal + ")";
-                       break;
-                  case MinAggregate:
-                     *str = string("MIN(") + (*iter)->aggregate.value->sVal + ")";
-                       break;
-                  case MaxAggregate:
-                     *str = string("MAX(") + (*iter)->aggregate.value->sVal + ")";
-                       break;
-                  case SumAggregate:
-                     *str = string("SUM(") + (*iter)->aggregate.value->sVal + ")";
-               }
+               attr = new FLOPPYTableAttribute;
+               string *str = new string(
+                     Aggregate((*iter)->aggregate.op,
+                               (*iter)->aggregate.value ? (*iter)->aggregate.value->sVal : NULL)
+                           .toString());
+               attr->attribute = (char *)str->c_str();
+               attr->tableName = NULL;
          }
-         plan->attList->push_back((char *)str->c_str());
+         plan->attList->push_back(attr);
       }
       plan->left = temp;
       plan->right = NULL;
@@ -234,7 +228,9 @@ bool tableAttributeExists(char *attr, string tableName) {
    heapHeaderGetRecordDesc(buffer, fd, &desc);
 
    for (int i = 0; i < desc.numFields; i++) {
-      if (!strcmp(attr, desc.fields[i].name))
+      string name = desc.fields[i].name;
+      if (!strcmp(attr, desc.fields[i].name) ||
+            attr == name.substr(name.find('.') + 1))
          return true;
    }
 
@@ -292,10 +288,12 @@ bool validateCondition(FLOPPYNode *node, set<string> &tableNames,
    }
    else if (node->_type == AggregateNode) {
       if (aggAllowed) {
-         bool good = !node->aggregate.value->sVal ||
-                 attributeExists(node->aggregate.value->sVal, tableNames);
-         if (!good)
-            *errMsg = "Attribute does not exist: " + string(node->aggregate.value->sVal);
+         bool good = true;
+         if (node->aggregate.value) {
+            good = attributeExists(node->aggregate.value->sVal, tableNames);
+            if (!good)
+               *errMsg = "Attribute does not exist: " + string(node->aggregate.value->sVal);
+         }
          return good;
       }
       else {
@@ -310,11 +308,11 @@ bool validateCondition(FLOPPYNode *node, set<string> &tableNames,
 }
 
 // check that all attributes exist
-bool validateAttList(vector<char *> *attList, set<string> &tableNames,
+bool validateAttList(vector<FLOPPYTableAttribute *> *attList, set<string> &tableNames,
  string *errMsg) {
    for (auto iter = attList->begin(); iter != attList->end(); iter++) {
-      if (!attributeExists(*iter, tableNames)) {
-         *errMsg = "Attribute does not exist: " + string(*iter);
+      if (!attributeExists((*iter)->attribute, tableNames)) {
+         *errMsg = "Attribute does not exist: " + string((*iter)->attribute);
          return false;
       }
    }
@@ -329,8 +327,13 @@ bool validateSelectClause(FLOPPYSelectStatement *stm,
 
       if (item->_type == AttributeType) {
          if (stm->groupBy) {
-            vector<char *> *group = stm->groupBy->groupByAttributes;
-            if (find(group->begin(), group->end(), item->attribute) == group->end()) {
+            vector<FLOPPYTableAttribute *> *group = stm->groupBy->groupByAttributes;
+            bool found = false;
+            for (auto gIter = group->begin(); gIter != group->end(); gIter++) {
+               if (!strcmp((*gIter)->attribute, item->attribute))
+                  found = true;
+            }
+            if (!found) {
                *errMsg = "Attribute not included in GROUP BY: " + string(item->attribute);
                return false;
             }
@@ -343,29 +346,45 @@ bool validateSelectClause(FLOPPYSelectStatement *stm,
       }
       else if (item->_type == TableAttributeType) {
          // replace table aliases with actual table names
-         if (tableAliases.count(item->tableAttribute.tableName))
-            item->tableAttribute.tableName = (char *)tableAliases[item->tableAttribute.tableName].c_str();
+         if (item->tableAttribute->tableName) {
+            if (tableAliases.count(item->tableAttribute->tableName))
+               item->tableAttribute->tableName = (char *) tableAliases[item->tableAttribute->tableName].c_str();
 
-         if (!tableNames.count(item->tableAttribute.tableName)) {
-            *errMsg = "Table not included in FROM clause: " + string(item->tableAttribute.tableName);
-            return false;
+            if (!tableNames.count(item->tableAttribute->tableName)) {
+               *errMsg = "Table not included in FROM clause: " + string(item->tableAttribute->tableName);
+               return false;
+            }
          }
 
-         vector<char *> *group = stm->groupBy->groupByAttributes;
-         if (stm->groupBy &&
-          find(group->begin(), group->end(), item->tableAttribute.attribute) == group->end()) {
-            *errMsg = "Attribute not included in GROUP BY: " + string(item->tableAttribute.attribute);
-            return false;
+         if (stm->groupBy) {
+            vector<FLOPPYTableAttribute *> *group = stm->groupBy->groupByAttributes;
+            bool found = false;
+            for (auto gIter = group->begin(); gIter != group->end(); gIter++) {
+               if (!strcmp((*gIter)->attribute, item->tableAttribute->attribute))
+                  found = true;
+            }
+            if (!found) {
+               *errMsg = "Attribute not included in GROUP BY: " + string(item->tableAttribute->attribute);
+               return false;
+            }
          }
 
-         if (!tableAttributeExists(item->tableAttribute.attribute,
-          item->tableAttribute.tableName)) {
-            *errMsg = "Attribute does not exist: " + string(item->tableAttribute.attribute);
-            return false;
+         if (item->tableAttribute->tableName) {
+            if (!tableAttributeExists(item->tableAttribute->attribute,
+                                      item->tableAttribute->tableName)) {
+               *errMsg = "Attribute does not exist: " + string(item->tableAttribute->attribute);
+               return false;
+            }
+         }
+         else {
+            if (!attributeExists(item->tableAttribute->attribute, tableNames)) {
+               *errMsg = "Attribute does not exist: " + string(item->tableAttribute->attribute);
+               return false;
+            }
          }
       }
       else if (item->_type == AggregateType) {
-         if (item->aggregate.value->sVal && !attributeExists(item->aggregate.value->sVal, tableNames)) {
+         if (item->aggregate.value && !attributeExists(item->aggregate.value->sVal, tableNames)) {
             *errMsg = "Attribute does not exist: " + string(item->aggregate.value->sVal);
             return false;
          }
@@ -413,7 +432,7 @@ void optimizeLogicalPlan(QueryPlan *plan) {
    // push other selections inside of joins when possible
 }
 
-// TODO doing this requires having B(R) and T(R) stored in the file headers
+// TODO do this properly
 void makePhysicalPlan(QueryPlan *plan) {
    // go through plan and set the impl field of each non-leaf node
    plan->impl = 0;
@@ -559,7 +578,7 @@ void createTableStatement(FLOPPYCreateTableStatement *stm) {
    recordDesc.numFields = (int)stm->columns->size();
    for (int i = 0; i < recordDesc.numFields; i++) {
       FLOPPYCreateColumn *col = stm->columns->at(i);
-      strcpy(recordDesc.fields[i].name, col->name);
+      strcpy(recordDesc.fields[i].name, (stm->tableName + "." + col->name).c_str());
       recordDesc.fields[i].type = col->type;
       switch (col->type) {
          case INT: recordDesc.fields[i].size = 4;
@@ -575,6 +594,7 @@ void createTableStatement(FLOPPYCreateTableStatement *stm) {
    }
 
    createHeapFile(buffer, (char *)stm->tableName.c_str(), recordDesc, stm->flags->volatileFlag);
+   printf("Table created.\n");
 
    // TODO figure out persistent vs volatile files. For now, assume everything is persistent.
    // will need to put an isVolatile flag in the heap file header.
@@ -590,14 +610,15 @@ void dropTableStatement(FLOPPYDropTableStatement *stm) {
 
    // This works for both persistent and volatile files.
    deleteHeapFile(buffer, stm->table);
+   printf("Table deleted.\n");
 }
 
 void createIndexStatement(FLOPPYCreateIndexStatement *stm) {
-
+   printf("Index created.\n");
 }
 
 void dropIndexStatement(FLOPPYDropIndexStatement *stm) {
-
+   printf("Index deleted.\n");
 }
 
 void insertStatement(FLOPPYInsertStatement *stm) {
@@ -621,13 +642,13 @@ void insertStatement(FLOPPYInsertStatement *stm) {
    }
 
    char *record = new char[recordSize];
+   memset(record, 0, recordSize);
 
    int byte = 0;
    for (int i = 0; i < stm->values->size(); i++) {
       FLOPPYValue *value = stm->values->at(i);
 
       if (recordDesc.fields[i].type == VARCHAR) {
-         memset(&record[byte], 0, recordDesc.fields[i].size);
          strncpy(&record[byte], value->sVal, recordDesc.fields[i].size);
          byte += recordDesc.fields[i].size;
       }
@@ -658,23 +679,28 @@ void insertStatement(FLOPPYInsertStatement *stm) {
    }
 
    insertRecord(buffer, stm->name, record, &temp);
+   printf("Tuple inserted.\n");
 }
 
 void deleteStatement(FLOPPYDeleteStatement *stm) {
    int fd = getFd(stm->name);
    TupleIterator iter(fd);
 
+   int i = 0;
    for (Record *record = iter.next(); record; record = iter.next()) {
       if (checkCondition(record, stm->where)) {
-         deleteRecord(buffer, record->page, record->ndx);
+         deleteRecord(buffer, record->page, record->ndx); // TODO delete might not actually be working!
+         i++;
       }
    }
+   printf("%d tuples deleted.\n", i);
 }
 
 void updateStatement(FLOPPYUpdateStatement *stm) {
    int fd = getFd(stm->tableName);
    TupleIterator iter(fd);
 
+   int i = 0;
    for (Record *record = iter.next(); record; record = iter.next()) {
       if (checkCondition(record, stm->whereExpression)) {
          RecordField field = evalExpr(record, stm->attributeExpression);
@@ -685,8 +711,10 @@ void updateStatement(FLOPPYUpdateStatement *stm) {
          }
          record->fields[stm->attributeName] = field;
          updateRecord(buffer, record->page, record->ndx, record->getBytes(record->recordDesc));
+         i++;
       }
    }
+   printf("%d tuples updated.\n", i);
 }
 
 void runStatement(char *query) {
@@ -734,9 +762,15 @@ void runStatement(char *query) {
 // - insert
 // - delete
 // - update
-// - single-table select with no aggregates
+// - multi-table select, with no grouping/aggregates or order by or duplicate elimination
 // Then get volatile files to work. Check that I can insert into a table and select those tuples back
 // out without the disk file getting bigger?
+
+// TODO And figure out why the very first time inserting a tuple that has a string in it ends up with
+// a couple nonsense characters appended to the end of the string.
+// TODO And edit project so I can have the attList be null to signify select *, so I can remove the
+// prepended table names from the attributes before outputting...
+// TODO Figure out how to make things work with table aliases...
 
 int main() {
    buffer = (Buffer *)malloc(sizeof(Buffer));
@@ -745,9 +779,16 @@ int main() {
 
    char query[2048];
 
+   int i = 0;
    while (cin.good()) {
-      cin.getline(query, 2048);
+      cin.getline(query + i, 2048);
+      if (query[i + cin.gcount() - 2] != ';') {
+         query[i + cin.gcount() - 1] = ' ';
+         i += cin.gcount();
+         continue;
+      }
 
+      i = 0;
       runStatement(query);
    }
 

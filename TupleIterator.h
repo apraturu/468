@@ -42,6 +42,7 @@ RecordField operator%(const RecordField r1, const RecordField r2);
 
 class Record {
 public:
+   Record();
    Record(char bytes[], RecordDesc recordDesc, DiskAddress page, int ndx);
 
    char *getBytes(RecordDesc recordDesc);

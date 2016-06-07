@@ -5,8 +5,10 @@
 #include <vector>
 
 #include "FLOPPYStatement.h"
-#include "FLOPPYForeignKey.h"
-#include "FLOPPYPrimaryKey.h"
+
+class FLOPPYCreateColumn;
+class FLOPPYPrimaryKey;
+class FLOPPYForeignKey;
 
 struct CreateTableAdditionalFunctionality {
    bool volatileFlag;

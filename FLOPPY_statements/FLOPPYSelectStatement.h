@@ -8,9 +8,10 @@
 class FLOPPYSelectItem;
 class FLOPPYTableSpec;
 class FLOPPYNode;
+class FLOPPYTableAttribute;
 
 struct FLOPPYGroupBy {
-   std::vector<char *> *groupByAttributes;
+   std::vector<FLOPPYTableAttribute *> *groupByAttributes;
    FLOPPYNode *havingCondition;
 };
 
@@ -24,7 +25,7 @@ class FLOPPYSelectStatement : public FLOPPYStatement {
       std::vector<FLOPPYTableSpec *> *tableSpecs;
       FLOPPYNode *whereCondition;
       FLOPPYGroupBy *groupBy;
-      std::vector<char *> *orderBys;
+      std::vector<FLOPPYTableAttribute *> *orderBys;
       int limit;
 
 

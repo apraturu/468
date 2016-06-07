@@ -2,8 +2,11 @@
 #define __FLOPPY_VALUE_H__
 #include <stdint.h>
 
+class FLOPPYTableAttribute;
+
 typedef enum {
    AttributeValue,
+   TableAttributeValue,
    StringValue,
    IntValue,
    FloatValue,
@@ -21,6 +24,7 @@ class FLOPPYValue {
       };
 
       union {
+         FLOPPYTableAttribute *tableAttribute;
          char *sVal;
          uint64_t iVal;
          float fVal;
