@@ -201,10 +201,6 @@ int project(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, 
    }
 }
 
-int duplicateElimination(fileDescriptor inTable, fileDescriptor *outTable) {
-   // TODO
-}
-
 int product(fileDescriptor inTable1, fileDescriptor inTable2, fileDescriptor *outTable) {
    //joinNestedLoops(inTable1, inTable2, NULL, outTable);
    joinOnePass(inTable1, inTable2, NULL, outTable);
@@ -511,8 +507,108 @@ int groupMultiPass(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *group
    // TODO
 }
 
+class RecordSorter {
+public:
+   RecordSorter(vector<string> attributes, RecordDesc recordDesc) : attributes(attributes) {}
+
+   bool operator()(Record *r1, Record *r2) {
+      for (int i = 0; i < attributes.size(); i++) {
+         if (r1->fields[attributes[i]] == r2->fields[attributes[i]])
+            continue;
+         return r1->fields[attributes[i]] < r2->fields[attributes[i]];
+      }
+      return false;
+   }
+
+private:
+   vector<string> attributes;
+};
+
+
+int duplicateElimination(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes,
+                         fileDescriptor *outTable) {
+   char *outFile;
+   DiskAddress temp;
+   RecordDesc recordDesc;
+
+   heapHeaderGetRecordDesc(buffer, inTable, &recordDesc);
+
+   *outTable = makeTempTable(buffer, &outFile, recordDesc);
+
+   vector<Record *> records;
+   TupleIterator iter(inTable);
+
+   for (Record *record = iter.next(); record; record = iter.next())
+      records.push_back(record);
+
+   vector<string> sortAttributes;
+   if (attributes) {
+      for (int i = 0; i < attributes->size(); i++) {
+         FLOPPYTableAttribute *t = attributes->at(i);
+         if (t->tableName) {
+            sortAttributes.push_back(string(t->tableName) + "." + t->attribute);
+         }
+         else {
+            Field field = findAttrInRecordDesc(recordDesc, t->attribute);
+            sortAttributes.push_back(string(field.name));
+         }
+      }
+   }
+   else {
+      for (int i = 0; i < recordDesc.numFields; i++)
+         sortAttributes.push_back(string(recordDesc.fields[i].name));
+   }
+   sort(records.begin(), records.end(), RecordSorter(sortAttributes, recordDesc));
+
+   Record *prev = NULL;
+   for (int i = 0; i < records.size(); i++) {
+      if (prev) {
+         bool equal = true;
+         for (int j = 0; j < sortAttributes.size(); j++) {
+            if (prev->fields[sortAttributes[j]] != records[i]->fields[sortAttributes[j]]) {
+               equal = false;
+               break;
+            }
+         }
+         if (equal)
+            continue;
+      }
+
+      insertRecord(buffer, outFile, records[i]->getBytes(recordDesc), &temp);
+      prev = records[i];
+   }
+}
+
 int sortTable(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable) {
-   // TODO
+   char *outFile;
+   DiskAddress temp;
+   RecordDesc recordDesc;
+
+   heapHeaderGetRecordDesc(buffer, inTable, &recordDesc);
+
+   *outTable = makeTempTable(buffer, &outFile, recordDesc);
+
+   vector<Record *> records;
+   TupleIterator iter(inTable);
+
+   for (Record *record = iter.next(); record; record = iter.next())
+      records.push_back(record);
+
+   vector<string> sortAttributes;
+   for (int i = 0; i < attributes->size(); i++) {
+      FLOPPYTableAttribute *t = attributes->at(i);
+      if (t->tableName) {
+         sortAttributes.push_back(string(t->tableName) + "." + t->attribute);
+      }
+      else {
+         Field field = findAttrInRecordDesc(recordDesc, t->attribute);
+         sortAttributes.push_back(string(field.name));
+      }
+   }
+   sort(records.begin(), records.end(), RecordSorter(sortAttributes, recordDesc));
+
+   for (int i = 0; i < records.size(); i++)
+      insertRecord(buffer, outFile, records[i]->getBytes(recordDesc), &temp);
 }
 
 int limitTable(fileDescriptor inTable, int k, fileDescriptor *outTable) {

@@ -226,8 +226,6 @@ int writePage(Buffer *buf, DiskAddress diskPage) {
 
 int flushPage(Buffer *buf, DiskAddress diskPage) {
    int i = findPage(buf, diskPage);
-   printf("flushPage, fd = %d, pageId = %d, index = %d\n",
-          diskPage.FD, diskPage.pageId, i);
    if (i < 0)
       return -1;
 

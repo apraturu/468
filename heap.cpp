@@ -42,6 +42,7 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
    header.recordSize = sizeOfRecordDesc(recordDesc);
 
    header.pageList = header.freeList = -1;
+   header.lastPage = 0;
    
    header.numBlocks = header.numTuples = 0;
    
@@ -112,6 +113,16 @@ int heapHeaderGetNextPage(Buffer *buf, fileDescriptor fd, DiskAddress *page) {
    return 0;
 }
 
+int heapHeaderGetLastPage(Buffer *buf, fileDescriptor fd, DiskAddress *page) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+
+   page->FD = fd;
+   page->pageId = header->lastPage;
+   return 0;
+}
+
 int heapHeaderGetFreeSpace(Buffer *buf, fileDescriptor fd, DiskAddress *page) {
    HeapFileHeader *header = getFileHeader(buf, fd);
    if (!header)
@@ -137,6 +148,19 @@ int heapHeaderSetNextPage(Buffer *buf, fileDescriptor fd, int nextPage) {
       return -1;
 
    header->pageList = nextPage;
+   DiskAddress addr;
+   addr.FD = fd;
+   addr.pageId = 0;
+   write(buf, addr, 0, sizeof(HeapFileHeader), (char *)header, sizeof(HeapFileHeader));
+   return 0;
+}
+
+int heapHeaderSetLastPage(Buffer *buf, fileDescriptor fd, int lastPage) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+
+   header->lastPage = lastPage;
    DiskAddress addr;
    addr.FD = fd;
    addr.pageId = 0;
@@ -306,6 +330,15 @@ int pHGetPrevPage(Buffer *buf, DiskAddress page, DiskAddress *prevPage) {
    return 0;
 }
 
+int pHSetNextPage(Buffer *buf, DiskAddress page, int nextPage) {
+   HeapPageHeader *header = getPageHeader(buf, page);
+   if (!header)
+      return -1;
+
+   header->nextPage = nextPage;
+   return write(buf, page, 0, sizeof(HeapPageHeader), (char *)header, sizeof(HeapPageHeader));
+}
+
 int pHSetPrevPage(Buffer *buf, DiskAddress page, int prevPage) {
    HeapPageHeader *header = getPageHeader(buf, page);
    if (!header)
@@ -418,25 +451,22 @@ int insertRecord(Buffer *buf, char *tableName, char *record, DiskAddress *locati
       header.occupied = 0;
 
       // update linked list
-      
-      // set new page's nextPage to old nextPage
-      DiskAddress tmp;
-      heapHeaderGetNextPage(buf, fd, &tmp);
-      header.nextPage = tmp.pageId;
 
-      // set file header's pointers to new page
-      heapHeaderSetNextPage(buf, fd, page.pageId);
+      DiskAddress nextPage;
+      heapHeaderGetNextPage(buf, fd, &nextPage);
+      if (nextPage.pageId == -1)
+         heapHeaderSetNextPage(buf, fd, page.pageId);
+
+      DiskAddress oldLastPage;
+      heapHeaderGetLastPage(buf, fd, &oldLastPage);
+      header.prevPage = oldLastPage.pageId;
+      header.nextPage = header.nextFree = -1;
+      heapHeaderSetLastPage(buf, fd, page.pageId);
+
+      if (oldLastPage.pageId > 0)
+         pHSetNextPage(buf, oldLastPage, page.pageId);
+
       heapHeaderSetFreeSpace(buf, fd, page.pageId);
-
-      if (header.nextPage != -1) { // set old nextPage's prevPage to new page
-         DiskAddress oldNextPage;
-         oldNextPage.FD = fd;
-         oldNextPage.pageId = header.nextPage;
-         pHSetPrevPage(buf, oldNextPage, page.pageId);
-      }
-
-      header.prevPage = 0; // set new page's prevPage to file header
-      header.nextFree = -1; // set new page's nextFree to -1 because no other free pages
 
       writePersistent(buf, page, 0, sizeof(HeapPageHeader), (char *)&header, sizeof(HeapPageHeader));
 

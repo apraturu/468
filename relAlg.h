@@ -26,7 +26,7 @@ int selectIndex(fileDescriptor inTable, FLOPPYNode *condition, fileDescriptor in
 
 int project(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable);
 
-int duplicateElimination(fileDescriptor inTable, fileDescriptor *outTable);
+int duplicateElimination(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable);
 
 int product(fileDescriptor inTable1, fileDescriptor inTable2, fileDescriptor *outTable);
 

@@ -153,23 +153,9 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       }
    }
 
-   // Process ORDER BY clause
-   if (stm->orderBys) {
-      temp = plan;
-      plan = new QueryPlan;
-      plan->type = SORT;
-      plan->attList = stm->orderBys;
-      plan->left = temp;
-      plan->right = NULL;
-   }
-   
-   // Process SELECT clause
-   // if select * or if only aggregates with no group by, don't bother with a projection
-   if (!aggsWithoutGroup && stm->selectItems->at(0)->_type != StarType) {
-      temp = plan;
-      plan = new QueryPlan;
-      plan->type = PROJECT;
-      plan->attList = new vector<FLOPPYTableAttribute *>;
+   vector<FLOPPYTableAttribute *> *projectItems = NULL;
+   if (stm->selectItems->at(0)->_type != StarType) {
+      projectItems = new vector<FLOPPYTableAttribute *>;
       for (auto iter = stm->selectItems->begin(); iter != stm->selectItems->end(); iter++) {
          FLOPPYTableAttribute *attr;
          switch ((*iter)->_type) {
@@ -187,19 +173,39 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
                      Aggregate((*iter)->aggregate.op,
                                (*iter)->aggregate.value ? (*iter)->aggregate.value->sVal : NULL)
                            .toString());
-               attr->attribute = (char *)str->c_str();
+               attr->attribute = (char *) str->c_str();
                attr->tableName = NULL;
          }
-         plan->attList->push_back(attr);
+         projectItems->push_back(attr);
       }
-      plan->left = temp;
-      plan->right = NULL;
    }
 
    if (stm->distinct) {
       temp = plan;
       plan = new QueryPlan;
       plan->type = DUPLICATE;
+      plan->attList = projectItems;
+      plan->left = temp;
+      plan->right = NULL;
+   }
+
+   // Process ORDER BY clause
+   if (stm->orderBys) {
+      temp = plan;
+      plan = new QueryPlan;
+      plan->type = SORT;
+      plan->attList = stm->orderBys;
+      plan->left = temp;
+      plan->right = NULL;
+   }
+   
+   // Process SELECT clause
+   // if select * or if only aggregates with no group by, don't bother with a projection
+   if (!aggsWithoutGroup && stm->selectItems->at(0)->_type != StarType) {
+      temp = plan;
+      plan = new QueryPlan;
+      plan->type = PROJECT;
+      plan->attList = projectItems;
       plan->left = temp;
       plan->right = NULL;
    }
@@ -465,7 +471,7 @@ int executeQueryPlan(QueryPlan *plan) {
          break;
       case DUPLICATE: printf("executeQueryPlan: DUPLICATE\n");
          in = executeQueryPlan(plan->left);
-         duplicateElimination(in, &out);
+         duplicateElimination(in, plan->attList, &out);
          break;
       case PRODUCT: printf("executeQueryPlan: PRODUCT\n");
          in = executeQueryPlan(plan->left);
@@ -762,7 +768,7 @@ void runStatement(char *query) {
 // - insert
 // - delete
 // - update
-// - multi-table select, with no grouping/aggregates or order by or duplicate elimination
+// - multi-table select with grouping/aggregates, but no order by or duplicate elimination
 // Then get volatile files to work. Check that I can insert into a table and select those tuples back
 // out without the disk file getting bigger?
 

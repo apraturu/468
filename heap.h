@@ -22,6 +22,7 @@ typedef struct {
    char tableName[NAME_LEN];
    int recordSize;
    int pageList; // page id of first page in file
+   int lastPage;
    int freeList; // page id of first page with free space
    int numBlocks;
    int numTuples;
@@ -46,6 +47,7 @@ int deleteHeapFile(Buffer *buf, char *tableName);
 int heapHeaderGetTableName(Buffer *buf, int fd, char *name);
 int heapHeaderGetRecordDesc(Buffer *buf, int fd, RecordDesc *recordDesc);
 int heapHeaderGetNextPage(Buffer *buf, int fd, DiskAddress *page);
+int heapHeaderGetLastPage(Buffer *buf, int fd, DiskAddress *page);
 int heapHeaderGetFreeSpace(Buffer *buf, int fd, DiskAddress *page);
 int heapHeaderGetRecordSize(Buffer *buf, int fd, int *recordSize);
 int heapHeaderGetNumBlocks(Buffer *buf, int fd, int *numBlocks);
@@ -55,6 +57,7 @@ int heapHeaderIncrementNumTuples(Buffer *buf, int fd);
 int heapHeaderDecrementNumTuples(Buffer *buf, int fd);
 
 int heapHeaderSetNextPage(Buffer *buf, fileDescriptor fd, int nextPage);
+int heapHeaderSetLastPage(Buffer *buf, fileDescriptor fd, int lastPage);
 int heapHeaderSetFreeSpace(Buffer *buf, fileDescriptor fd, int freePage);
 
 int getRecord(Buffer *buf, DiskAddress page, int recordId, char *bytes);
