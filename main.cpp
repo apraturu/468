@@ -469,13 +469,13 @@ int executeQueryPlan(QueryPlan *plan) {
    int in, in2 = -1, out;
 
    switch (plan->type) {
-      case TABLE: printf("executeQueryPlan: TABLE\n");
+      case TABLE: //printf("executeQueryPlan: TABLE\n");
          return getFd(plan->strVal);
-      case ALIAS: printf("executeQueryPlan: ALIAS\n");
+      case ALIAS: //printf("executeQueryPlan: ALIAS\n");
          in = executeQueryPlan(plan->left);
          renameTable(in, plan->strVal, &out);
          break;
-      case SELECT: printf("executeQueryPlan: SELECT\n");
+      case SELECT: //printf("executeQueryPlan: SELECT\n");
          in = executeQueryPlan(plan->left);
          // TODO actually deal with index stuff
          //if (plan->impl == 0) {
@@ -485,20 +485,20 @@ int executeQueryPlan(QueryPlan *plan) {
          //   selectIndex(in, plan->cond, index, &out);
          //}
          break;
-      case PROJECT: printf("executeQueryPlan: PROJECT\n");
+      case PROJECT: //printf("executeQueryPlan: PROJECT\n");
          in = executeQueryPlan(plan->left);
          project(in, plan->attList, &out);
          break;
-      case DUPLICATE: printf("executeQueryPlan: DUPLICATE\n");
+      case DUPLICATE: //printf("executeQueryPlan: DUPLICATE\n");
          in = executeQueryPlan(plan->left);
          duplicateElimination(in, plan->attList, &out);
          break;
-      case PRODUCT: printf("executeQueryPlan: PRODUCT\n");
+      case PRODUCT: //printf("executeQueryPlan: PRODUCT\n");
          in = executeQueryPlan(plan->left);
          in2 = executeQueryPlan(plan->right);
          product(in, in2, &out);
          break;
-      case JOIN: printf("executeQueryPlan: JOIN\n");
+      case JOIN: //printf("executeQueryPlan: JOIN\n");
          in = executeQueryPlan(plan->left);
          in2 = executeQueryPlan(plan->right);
          if (plan->impl == 0)
@@ -508,18 +508,18 @@ int executeQueryPlan(QueryPlan *plan) {
          else
             joinNestedLoops(in, in2, plan->cond, &out);
          break;
-      case GROUP: printf("executeQueryPlan: GROUP\n");
+      case GROUP: //printf("executeQueryPlan: GROUP\n");
          in = executeQueryPlan(plan->left);
          if (plan->impl == 0)
             groupOnePass(in, plan->grouping.groupBy, plan->grouping.aggregates, &out);
          else
             groupMultiPass(in, plan->grouping.groupBy, plan->grouping.aggregates, &out);
          break;
-      case SORT: printf("executeQueryPlan: SORT\n");
+      case SORT: //printf("executeQueryPlan: SORT\n");
          in = executeQueryPlan(plan->left);
          sortTable(in, plan->attList, &out);
          break;
-      case LIMIT: printf("executeQueryPlan: LIMIT\n");
+      case LIMIT: //printf("executeQueryPlan: LIMIT\n");
          in = executeQueryPlan(plan->left);
          limitTable(in, plan->intVal, &out);
    }
