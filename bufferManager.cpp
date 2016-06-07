@@ -62,7 +62,6 @@ int commence(char * database,
 
 int squash(Buffer * buf) {
    int num;
-   printf("squash\n");
    for (num = 0; num < buf->nBufferBlocks; num++) {
       if (buf->pin[num] == 1) {
          unPinPage(buf, buf->pages[num].address); 

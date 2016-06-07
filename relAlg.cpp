@@ -133,6 +133,37 @@ int selectScan(fileDescriptor inTable, FLOPPYNode *cond, fileDescriptor *outTabl
    }
 }
 
+int renameTable(fileDescriptor inTable, char *alias, fileDescriptor *outTable) {
+   char *outFile;
+   DiskAddress temp;
+   RecordDesc oldRecordDesc, newRecordDesc;
+
+   heapHeaderGetRecordDesc(buffer, inTable, &oldRecordDesc);
+
+   newRecordDesc.numFields = oldRecordDesc.numFields;
+   for (int i = 0; i < oldRecordDesc.numFields; i++) {
+      string oldName(oldRecordDesc.fields[i].name);
+      string newName(alias + oldName.substr(oldName.find('.')));
+      strcpy(newRecordDesc.fields[i].name, newName.c_str());
+      newRecordDesc.fields[i].size = oldRecordDesc.fields[i].size;
+      newRecordDesc.fields[i].type = oldRecordDesc.fields[i].type;
+   }
+
+   *outTable = makeTempTable(buffer, &outFile, newRecordDesc);
+
+   TupleIterator iter(inTable); // open an iterator on input file
+
+   for (Record *record = iter.next(); record; record = iter.next()) {
+      Record newRecord;
+      for (int i = 0; i < newRecordDesc.numFields; i++) {
+         string oldName(oldRecordDesc.fields[i].name);
+         string newName(newRecordDesc.fields[i].name);
+         newRecord.fields[newName] = record->fields[oldName];
+      }
+      insertRecord(buffer, outFile, newRecord.getBytes(newRecordDesc), &temp);
+   }
+}
+
 int project(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable) {
    char *outFile;
    DiskAddress temp;

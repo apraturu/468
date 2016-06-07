@@ -24,6 +24,8 @@ struct AggResult {
 int selectScan(fileDescriptor inTable, FLOPPYNode *condition, fileDescriptor *outTable);
 int selectIndex(fileDescriptor inTable, FLOPPYNode *condition, fileDescriptor index, fileDescriptor *outTable);
 
+int renameTable(fileDescriptor inTable, char *alias, fileDescriptor *outTable);
+
 int project(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable);
 
 int duplicateElimination(fileDescriptor inTable, vector<FLOPPYTableAttribute *> *attributes, fileDescriptor *outTable);

@@ -26,12 +26,12 @@ using namespace std;
 
 // TODO clean this up, separate into multiple files
 
-enum QueryNodeType {TABLE, SELECT, PROJECT, DUPLICATE, PRODUCT, JOIN, GROUP, SORT, LIMIT};
+enum QueryNodeType {TABLE, ALIAS, SELECT, PROJECT, DUPLICATE, PRODUCT, JOIN, GROUP, SORT, LIMIT};
 
 struct QueryPlan {
    QueryNodeType type;
    int impl;
-   //union {
+   union {
       char *strVal;
       int intVal;
       FLOPPYNode *cond;
@@ -41,7 +41,7 @@ struct QueryPlan {
          vector<FLOPPYTableAttribute *> *groupBy;
          vector<Aggregate> *aggregates;
       } grouping;
-   //};
+   };
    QueryPlan *left, *right; // subtrees, use only left if unary operation
 };
 
@@ -86,6 +86,15 @@ QueryPlan *makeQueryPlan(FLOPPYSelectStatement *stm) {
       plan->strVal = (*tableSpec)->tableName;
       plan->left = NULL;
       plan->right = NULL;
+
+      if ((*tableSpec)->alias) {
+         QueryPlan *alias = new QueryPlan;
+         alias->type = ALIAS;
+         alias->strVal = (*tableSpec)->alias;
+         alias->left = plan;
+         alias->right = NULL;
+         plan = alias;
+      }
 
       if (!first) {
          temp->right = plan;
@@ -251,8 +260,7 @@ bool attributeExists(char *attr, set<string> tableNames) {
    return false;
 }
 
-bool validateFromClause(vector<FLOPPYTableSpec *> *tableSpecs,
- map<string, string> &tableAliases, set<string> &tableNames, string *errMsg) {
+bool validateFromClause(vector<FLOPPYTableSpec *> *tableSpecs, set<string> &tableNames, string *errMsg) {
    for (auto iter = tableSpecs->begin(); iter != tableSpecs->end(); iter++) {
       FLOPPYTableSpec *tableSpec = *iter;
 
@@ -262,11 +270,11 @@ bool validateFromClause(vector<FLOPPYTableSpec *> *tableSpecs,
       }
 
       if (tableSpec->alias) {
-         if (tableAliases.count(tableSpec->alias) || tableNames.count(tableSpec->alias)) {
-            *errMsg = "Duplicate alias name in FROM clause: " + string(tableSpec->alias);
-            return false;
-         }
-         tableAliases[tableSpec->alias] = tableSpec->tableName;
+         //if (tableAliases.count(tableSpec->alias) || tableNames.count(tableSpec->alias)) {
+         //   *errMsg = "Duplicate alias name in FROM clause: " + string(tableSpec->alias);
+         //   return false;
+         //}
+         //tableAliases[tableSpec->alias] = tableSpec->tableName;
       }
       else {
          if (tableNames.count(tableSpec->tableName)) {
@@ -289,6 +297,13 @@ bool validateCondition(FLOPPYNode *node, set<string> &tableNames,
          if (!good)
             *errMsg = "Attribute does not exist: " + string(node->value->sVal);
          return good;
+      }
+      else if (node->value->type() == TableAttributeValue) {
+         //if (node->value->tableAttribute->tableName &&
+         //      tableAliases.count(node->value->tableAttribute->tableName)) {
+         //   node->value->tableAttribute->tableName =
+         //         (char *)tableAliases[node->value->tableAttribute->tableName].c_str();
+         //}
       }
       return true;
    }
@@ -321,6 +336,8 @@ bool validateAttList(vector<FLOPPYTableAttribute *> *attList, set<string> &table
          *errMsg = "Attribute does not exist: " + string((*iter)->attribute);
          return false;
       }
+      //if ((*iter)->tableName && tableAliases.count((*iter)->tableName))
+      //   (*iter)->tableName = (char *)tableAliases[(*iter)->tableName].c_str();
    }
    return true;
 }
@@ -401,11 +418,10 @@ bool validateSelectClause(FLOPPYSelectStatement *stm,
 }
 
 bool validateSemantics(FLOPPYSelectStatement *stm, string *errMsg) {
-   map<string, string> tableAliases; // map from alias to actual table name
    set<string> tableNames;
 
    // Validate FROM clause
-   if (!validateFromClause(stm->tableSpecs, tableAliases, tableNames, errMsg))
+   if (!validateFromClause(stm->tableSpecs, tableNames, errMsg))
       return false;
 
    // Validate WHERE clause if it exists
@@ -429,7 +445,7 @@ bool validateSemantics(FLOPPYSelectStatement *stm, string *errMsg) {
       return false;
 
    // Validate SELECT clause
-   return validateSelectClause(stm, tableAliases, tableNames, errMsg);
+   return true;//validateSelectClause(stm, tableAliases, tableNames, errMsg);
 }
 
 void optimizeLogicalPlan(QueryPlan *plan) {
@@ -455,6 +471,10 @@ int executeQueryPlan(QueryPlan *plan) {
    switch (plan->type) {
       case TABLE: printf("executeQueryPlan: TABLE\n");
          return getFd(plan->strVal);
+      case ALIAS: printf("executeQueryPlan: ALIAS\n");
+         in = executeQueryPlan(plan->left);
+         renameTable(in, plan->strVal, &out);
+         break;
       case SELECT: printf("executeQueryPlan: SELECT\n");
          in = executeQueryPlan(plan->left);
          // TODO actually deal with index stuff
@@ -550,7 +570,7 @@ void selectStatement(FLOPPYSelectStatement *stm) {
    string errMsg;
 
    //printf("selectStatement\n");
-   if (validateSemantics(stm, &errMsg)) {
+   //if (validateSemantics(stm, &errMsg)) {
       //printf("validated semantics\n");
       QueryPlan *plan = makeQueryPlan(stm);
       //printf("made query plan\n");
@@ -562,10 +582,10 @@ void selectStatement(FLOPPYSelectStatement *stm) {
       printTable(fd);
       if (plan->type != TABLE) // delete temp file
          deleteFile(buffer, fd);
-   }
-   else {
-      printf("Error running query: %s\n", errMsg.c_str());
-   }
+   //}
+   //else {
+   //   printf("Error running query: %s\n", errMsg.c_str());
+   //}
 }
 
 // TODO add .dat extension to table files, and I guess .ind to index files
@@ -695,7 +715,7 @@ void deleteStatement(FLOPPYDeleteStatement *stm) {
    int i = 0;
    for (Record *record = iter.next(); record; record = iter.next()) {
       if (checkCondition(record, stm->where)) {
-         deleteRecord(buffer, record->page, record->ndx); // TODO delete might not actually be working!
+         deleteRecord(buffer, record->page, record->ndx);
          i++;
       }
    }
@@ -761,22 +781,6 @@ void runStatement(char *query) {
       printf("Failed to parse FLOPPY-SQL statement.\n");
    }
 }
-
-// Stuff that seems to work:
-// - create table (volatile isn't handled yet though)
-// - drop table
-// - insert
-// - delete
-// - update
-// - multi-table select with grouping/aggregates, but no order by or duplicate elimination
-// Then get volatile files to work. Check that I can insert into a table and select those tuples back
-// out without the disk file getting bigger?
-
-// TODO And figure out why the very first time inserting a tuple that has a string in it ends up with
-// a couple nonsense characters appended to the end of the string.
-// TODO And edit project so I can have the attList be null to signify select *, so I can remove the
-// prepended table names from the attributes before outputting...
-// TODO Figure out how to make things work with table aliases...
 
 int main() {
    buffer = (Buffer *)malloc(sizeof(Buffer));
