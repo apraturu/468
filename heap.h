@@ -27,6 +27,7 @@ typedef struct {
    int numBlocks;
    int numTuples;
    RecordDesc recordDesc;
+   int isVolatile;
 } HeapFileHeader;
 
 typedef struct {
@@ -52,6 +53,7 @@ int heapHeaderGetFreeSpace(Buffer *buf, int fd, DiskAddress *page);
 int heapHeaderGetRecordSize(Buffer *buf, int fd, int *recordSize);
 int heapHeaderGetNumBlocks(Buffer *buf, int fd, int *numBlocks);
 int heapHeaderGetNumTuples(Buffer *buf, int fd, int *numTuples);
+int heapHeaderIsVolatile(Buffer *buf, int fd, int *isVolatile);
 int heapHeaderIncrementNumBlocks(Buffer *buf, int fd);
 int heapHeaderIncrementNumTuples(Buffer *buf, int fd);
 int heapHeaderDecrementNumTuples(Buffer *buf, int fd);

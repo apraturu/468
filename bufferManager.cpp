@@ -64,7 +64,7 @@ int squash(Buffer * buf) {
    int num;
    for (num = 0; num < buf->nBufferBlocks; num++) {
       if (buf->pin[num] == 1) {
-         unPinPage(buf, buf->pages[num].address); 
+         unPinPage(buf, buf->pages[num].address);
       }
       if (buf->dirty[num] == 1) {
          flushPage(buf, buf->pages[num].address);

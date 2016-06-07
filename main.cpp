@@ -47,6 +47,7 @@ struct QueryPlan {
 
 
 Buffer *buffer;
+set<int> volatileFds;
 
 vector<Aggregate> *getAggsFromCondition(FLOPPYNode *node) {
    vector<Aggregate> *aggs = new vector<Aggregate>;
@@ -622,9 +623,6 @@ void createTableStatement(FLOPPYCreateTableStatement *stm) {
    createHeapFile(buffer, (char *)stm->tableName.c_str(), recordDesc, stm->flags->volatileFlag);
    printf("Table created.\n");
 
-   // TODO figure out persistent vs volatile files. For now, assume everything is persistent.
-   // will need to put an isVolatile flag in the heap file header.
-
    // TODO create indexes for primary and foreign keys
 }
 
@@ -633,6 +631,8 @@ void dropTableStatement(FLOPPYDropTableStatement *stm) {
       printf("File named %s does not exist.\n", stm->table);
       return;
    }
+
+   volatileFds.erase(getFd(stm->table));
 
    // This works for both persistent and volatile files.
    deleteHeapFile(buffer, stm->table);
@@ -706,6 +706,11 @@ void insertStatement(FLOPPYInsertStatement *stm) {
 
    insertRecord(buffer, stm->name, record, &temp);
    printf("Tuple inserted.\n");
+
+   int isVolatile;
+   heapHeaderIsVolatile(buffer, fd, &isVolatile);
+   if (isVolatile)
+      volatileFds.insert(fd);
 }
 
 void deleteStatement(FLOPPYDeleteStatement *stm) {
@@ -802,6 +807,13 @@ int main() {
       runStatement(query);
    }
 
+   for (auto fIter = volatileFds.begin(); fIter != volatileFds.end(); fIter++) {
+      TupleIterator iter(*fIter);
+
+      for (Record *record = iter.next(); record; record = iter.next()) {
+         deleteRecord(buffer, record->page, record->ndx);
+      }
+   }
    squash(buffer);
 
    return 0;

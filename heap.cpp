@@ -45,6 +45,8 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
    header.lastPage = 0;
    
    header.numBlocks = header.numTuples = 0;
+
+   header.isVolatile = isVolatile;
    
    fileDescriptor fd = getFd(filename);
    DiskAddress addr;
@@ -52,7 +54,6 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
    newPage(buf, fd, &addr);
    writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
 
-   // TODO figure out persistent vs volatile files...
    //
    //if (table->isVolatile) {
    //   writeVolatile(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
@@ -196,6 +197,15 @@ int heapHeaderGetNumTuples(Buffer *buf, int fd, int *numTuples) {
       return -1;
       
    *numTuples = header->numTuples;
+   return 0;
+}
+
+int heapHeaderIsVolatile(Buffer *buf, int fd, int *isVolatile) {
+   HeapFileHeader *header = getFileHeader(buf, fd);
+   if (!header)
+      return -1;
+
+   *isVolatile = header->isVolatile;
    return 0;
 }
 
