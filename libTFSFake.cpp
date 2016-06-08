@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <map>
 #include <string>
 #include "libTinyFS.h"

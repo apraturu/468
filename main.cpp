@@ -14,10 +14,14 @@
 #include "FLOPPYParser.h"
 #include "heap.h"
 #include "libTinyFS.h"
+#include "main.h"
 #include "relAlg.h"
 #include "FLOPPY_statements/statements.h"
 #include "TupleIterator.h"
 #include "bufferManager.h"
+#include "server.h"
+
+#define PORT_NUM 5000
 
 #define BUF_BLOCKS 500
 #define CACHE_BLOCKS 500
@@ -567,7 +571,7 @@ void printTable(int fd) {
    }
 }
 
-void selectStatement(FLOPPYSelectStatement *stm) {
+int selectStatement(FLOPPYSelectStatement *stm, bool *shouldDelete) {
    string errMsg;
 
    //printf("selectStatement\n");
@@ -577,12 +581,10 @@ void selectStatement(FLOPPYSelectStatement *stm) {
       //printf("made query plan\n");
       optimizeLogicalPlan(plan);
       makePhysicalPlan(plan);
+      *shouldDelete = plan->type != TABLE;
       //printf("made physical plan\n");
-      int fd = executeQueryPlan(plan);
+      return executeQueryPlan(plan);
       //printf("executed query, fd = %d\n", fd);
-      printTable(fd);
-      if (plan->type != TABLE) // delete temp file
-         deleteFile(buffer, fd);
    //}
    //else {
    //   printf("Error running query: %s\n", errMsg.c_str());
@@ -620,7 +622,8 @@ void createTableStatement(FLOPPYCreateTableStatement *stm) {
       }
    }
 
-   createHeapFile(buffer, (char *)stm->tableName.c_str(), recordDesc, stm->flags->volatileFlag);
+   createHeapFile(buffer, (char *)stm->tableName.c_str(), recordDesc, stm->flags->volatileFlag,
+    stm->pk, stm->fk);
    printf("Table created.\n");
 
    // TODO create indexes for primary and foreign keys
@@ -647,6 +650,54 @@ void dropIndexStatement(FLOPPYDropIndexStatement *stm) {
    printf("Index deleted.\n");
 }
 
+bool checkExists(char *query) {
+   bool shouldDelete;
+   int fd = runStatement(query, &shouldDelete);
+   TupleIterator iter(fd);
+   bool rtn = iter.next() != NULL;
+   if (shouldDelete) // delete temp file
+      deleteFile(buffer, fd);
+   return rtn;
+}
+
+bool checkKey(vector<FLOPPYValue *> *values, char *keyTable, vector<char *> *keyAttributes,
+              char *refTable, vector<char *> *refAttributes, RecordDesc recordDesc) {
+   vector<RecordField> keyVals;
+
+   for (auto iter = keyAttributes->begin(); iter != keyAttributes->end(); iter++) {
+      for (int i = 0; i < recordDesc.numFields; i++) {
+         if (string(keyTable) + "." + *iter == recordDesc.fields[i].name) {
+            if (recordDesc.fields[i].type == VARCHAR)
+               keyVals.push_back(RecordField(string(values->at(i)->sVal)));
+            else if (recordDesc.fields[i].type == INT)
+               keyVals.push_back(RecordField((int)values->at(i)->iVal));
+            else if (recordDesc.fields[i].type == BOOLEAN)
+               keyVals.push_back(RecordField(values->at(i)->bVal));
+            else
+               keyVals.push_back(RecordField((ColumnType)recordDesc.fields[i].type, values->at(i)->fVal));
+            break;
+         }
+      }
+   }
+   stringstream query;
+   query << "select * from " << refTable << " where ";
+   for (int i = 0; i < keyVals.size(); i++) {
+      if (i > 0)
+         query << " and ";
+      query << refAttributes->at(i) << " = ";
+      if (keyVals[i].type == VARCHAR)
+         query << "'" << keyVals[i].sVal << "'";
+      else if (keyVals[i].type == INT)
+         query << keyVals[i].iVal;
+      else if (keyVals[i].type == BOOLEAN)
+         query << (int)keyVals[i].bVal;
+      else
+         query << keyVals[i].fVal;
+   }
+   query << ";";
+   return checkExists((char *)query.str().c_str());
+}
+
 void insertStatement(FLOPPYInsertStatement *stm) {
    DiskAddress temp;
    int recordSize;
@@ -665,6 +716,26 @@ void insertStatement(FLOPPYInsertStatement *stm) {
       printf("Insert statement has %d values, expected %d.\n",
              stm->values->size(), recordDesc.numFields);
       return;
+   }
+
+   // Check primary and foreign keys.
+   FLOPPYPrimaryKey *pk = new FLOPPYPrimaryKey;
+   vector<FLOPPYForeignKey *> *fks = new vector<FLOPPYForeignKey *>;
+   getKeys(buffer, fd, pk, fks);
+
+   if (checkKey(stm->values, stm->name, pk->attributes, stm->name, pk->attributes, recordDesc)) {
+      printf("Tuple violates primary key constraint.\n");
+      return;
+   }
+
+   for (auto iter = fks->begin(); iter != fks->end(); iter++) {
+      FLOPPYPrimaryKey *refPk = new FLOPPYPrimaryKey;
+      getKeys(buffer, getFd((*iter)->refTableName), refPk, NULL);
+      if (!checkKey(stm->values, stm->name, (*iter)->attributes, (*iter)->refTableName,
+                    refPk->attributes, recordDesc)) {
+         printf("Tuple violates foreign key constraint on %s.\n", (*iter)->refTableName);
+         return;
+      }
    }
 
    char *record = new char[recordSize];
@@ -748,7 +819,7 @@ void updateStatement(FLOPPYUpdateStatement *stm) {
    printf("%d tuples updated.\n", i);
 }
 
-void runStatement(char *query) {
+int runStatement(char *query, bool *shouldDelete) {
    FLOPPYOutput *result = FLOPPYParser::parseFLOPPYString(query);
 
    if (result->isValid) {
@@ -776,8 +847,7 @@ void runStatement(char *query) {
             updateStatement((FLOPPYUpdateStatement *) stm);
             break;
          case SelectStatement:
-            selectStatement((FLOPPYSelectStatement *) stm);
-            break;
+            return selectStatement((FLOPPYSelectStatement *) stm, shouldDelete);
          default:
             printf("what\n");
       }
@@ -785,6 +855,9 @@ void runStatement(char *query) {
    else {
       printf("Failed to parse FLOPPY-SQL statement.\n");
    }
+   *shouldDelete = false;
+
+   return 0;
 }
 
 int main() {
@@ -792,6 +865,13 @@ int main() {
 
    commence((char *)"db.dsk", buffer, BUF_BLOCKS, CACHE_BLOCKS);
 
+   //Server server(PORT_NUM);
+
+   //if (server.setup_socket()) {
+   //   server.handle_client_traffic();
+   //}
+
+   // Stdin stuff:
    char query[2048];
 
    int i = 0;
@@ -804,7 +884,12 @@ int main() {
       }
 
       i = 0;
-      runStatement(query);
+      bool shouldDelete;
+      int fd = runStatement(query, &shouldDelete);
+      if (fd > 0)
+         printTable(fd);
+      if (shouldDelete) // delete temp file
+         deleteFile(buffer, fd);
    }
 
    for (auto fIter = volatileFds.begin(); fIter != volatileFds.end(); fIter++) {

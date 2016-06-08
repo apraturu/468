@@ -5,4 +5,6 @@
 
 extern Buffer *buffer;
 
+int runStatement(char *query, bool *shouldDelete);
+
 #endif
