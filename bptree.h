@@ -6,18 +6,16 @@
  * btree implementation header file, source at btree.c.
  * let me know if this stuff is broken and i'll fix it!
  * Leaf nodes need to allow for storing an entire tuple.
- *
- *
  */
 #include "heap.h"
 #include "bufferManager.h"
-
+ 
 /*
  *	table: the name of the table for which the B+ tree is created
  * 	key: describes the key used by the index
  *	volatileFlag: persistent or volatile
  */
-int createBTree(char * table, RecordDesc key, int volatileFlag);
+int createBTree(char * table, char * key, int volatileFlag);
 /*
  * btreeName: the name of the disk file storing the B+ tree.
  */
