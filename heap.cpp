@@ -32,7 +32,105 @@ int sizeOfRecordDesc(RecordDesc recordDesc) {
    return size;
 }
 
-int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile) {
+// Make a second page right after the file header to store info about primary/foreign keys.
+// Page has this structure:
+//  int num fields in primary key
+//  num * char[NAME_LEN]  field names
+//  int num foreign keys
+//  num * (char[NAME_LEN] target table name +
+//         int num fields +
+//         num * char[NAME_LEN]  field names)
+
+void getKeys(Buffer *buf, int fd, FLOPPYPrimaryKey *pk, vector<FLOPPYForeignKey *> *fks) {
+   DiskAddress addr{fd, 1};
+   char *page = read(buf, addr, 0, BLOCKSIZE);
+   int num;
+
+   pk->attributes = new vector<char *>;
+
+   memcpy(&num, page, sizeof(int));
+   page += sizeof(int);
+
+   while (num--) {
+      string *str = new string(page);
+      pk->attributes->push_back((char *)str->c_str());
+      page += NAME_LEN;
+   }
+
+   if (fks) {
+      memcpy(&num, page, sizeof(int));
+      page += sizeof(int);
+
+      while (num--) {
+         FLOPPYForeignKey *fk = new FLOPPYForeignKey;
+         fk->attributes = new vector<char *>;
+
+         string *str = new string(page);
+         fk->refTableName = (char *) str->c_str();
+         page += NAME_LEN;
+
+         int i;
+         memcpy(&i, page, sizeof(int));
+         page += sizeof(int);
+
+         while (i--) {
+            str = new string(page);
+            fk->attributes->push_back((char *) str->c_str());
+            page += NAME_LEN;
+         }
+
+         fks->push_back(fk);
+      }
+   }
+}
+
+void createKeyPage(Buffer *buf, int fd, FLOPPYPrimaryKey *pk, vector<FLOPPYForeignKey *> *fk) {
+   char page[BLOCKSIZE];
+   int num, byte;
+
+   if (!pk)
+      return;
+
+   num = pk->attributes->size();
+   memcpy(page, &num, sizeof(int));
+   byte = sizeof(int);
+
+   for (auto iter = pk->attributes->begin(); iter != pk->attributes->end(); iter++) {
+      memset(page + byte, 0, NAME_LEN);
+      strcpy(page + byte, *iter);
+      byte += NAME_LEN;
+   }
+
+   num = fk->size();
+   memcpy(page + byte, &num, sizeof(int));
+   byte += sizeof(int);
+
+   for (auto kIter = fk->begin(); kIter != fk->end(); kIter++) {
+      FLOPPYForeignKey *key = *kIter;
+
+      memset(page + byte, 0, NAME_LEN);
+      strcpy(page + byte, key->refTableName);
+      byte += NAME_LEN;
+
+      num = key->attributes->size();
+      memcpy(page + byte, &num, sizeof(int));
+      byte += sizeof(int);
+
+      for (auto iter = key->attributes->begin(); iter != key->attributes->end(); iter++) {
+         memset(page + byte, 0, NAME_LEN);
+         strcpy(page + byte, *iter);
+         byte += NAME_LEN;
+      }
+   }
+
+   DiskAddress addr;
+   newPage(buf, fd, &addr);
+   writePersistent(buf, addr, 0, BLOCKSIZE, (char *)page, BLOCKSIZE);
+}
+
+
+int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile,
+ FLOPPYPrimaryKey *pk, vector<FLOPPYForeignKey *> *fk) {
    HeapFileHeader header;
 
    strcpy(header.tableName, filename);
@@ -53,6 +151,8 @@ int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVol
 
    newPage(buf, fd, &addr);
    writePersistent(buf, addr, 0, sizeof(HeapFileHeader), (char *)&header, sizeof(HeapFileHeader));
+
+   createKeyPage(buf, fd, pk, fk);
 
    //
    //if (table->isVolatile) {

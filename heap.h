@@ -5,7 +5,12 @@
 #define MAX_FIELDS 40
 #define PAGE_HDR_SIZE 256
 
+#include <vector>
 #include "bufferManager.h"
+#include "FLOPPY_statements/FLOPPYPrimaryKey.h"
+#include "FLOPPY_statements/FLOPPYForeignKey.h"
+
+using namespace std;
 
 typedef struct {
    char name[NAME_LEN];
@@ -42,8 +47,10 @@ typedef struct {
 
 int sizeOfRecordDesc(RecordDesc recordDesc);
 
-int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile);
+int createHeapFile(Buffer *buf, char *filename, RecordDesc recordDesc, int isVolatile,
+ FLOPPYPrimaryKey *pk, vector<FLOPPYForeignKey *> *fk);
 int deleteHeapFile(Buffer *buf, char *tableName);
+void getKeys(Buffer *buf, int fd, FLOPPYPrimaryKey *pk, vector<FLOPPYForeignKey *> *fks);
 
 int heapHeaderGetTableName(Buffer *buf, int fd, char *name);
 int heapHeaderGetRecordDesc(Buffer *buf, int fd, RecordDesc *recordDesc);

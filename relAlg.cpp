@@ -667,7 +667,7 @@ fileDescriptor makeTempTable(Buffer *buf, char **filename, RecordDesc recordDesc
    stream << "_temp_" << id++;
    *filename = (char *)(new string(stream.str()))->c_str();
 
-   return createHeapFile(buf, *filename, recordDesc, false);
+   return createHeapFile(buf, *filename, recordDesc, false, NULL, NULL);
 }
 
 // Find an attribute that may not have the table name prepended.
