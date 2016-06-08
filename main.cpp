@@ -18,6 +18,9 @@
 #include "FLOPPY_statements/statements.h"
 #include "TupleIterator.h"
 #include "bufferManager.h"
+#include "server.h"
+
+#define PORT_NUM 5000
 
 #define BUF_BLOCKS 500
 #define CACHE_BLOCKS 500
@@ -567,7 +570,7 @@ void printTable(int fd) {
    }
 }
 
-void selectStatement(FLOPPYSelectStatement *stm) {
+int selectStatement(FLOPPYSelectStatement *stm, bool *shouldDelete) {
    string errMsg;
 
    //printf("selectStatement\n");
@@ -577,12 +580,10 @@ void selectStatement(FLOPPYSelectStatement *stm) {
       //printf("made query plan\n");
       optimizeLogicalPlan(plan);
       makePhysicalPlan(plan);
+      *shouldDelete = plan->type != TABLE;
       //printf("made physical plan\n");
-      int fd = executeQueryPlan(plan);
+      return executeQueryPlan(plan);
       //printf("executed query, fd = %d\n", fd);
-      printTable(fd);
-      if (plan->type != TABLE) // delete temp file
-         deleteFile(buffer, fd);
    //}
    //else {
    //   printf("Error running query: %s\n", errMsg.c_str());
@@ -748,7 +749,7 @@ void updateStatement(FLOPPYUpdateStatement *stm) {
    printf("%d tuples updated.\n", i);
 }
 
-void runStatement(char *query) {
+int runStatement(char *query, bool *shouldDelete) {
    FLOPPYOutput *result = FLOPPYParser::parseFLOPPYString(query);
 
    if (result->isValid) {
@@ -776,8 +777,7 @@ void runStatement(char *query) {
             updateStatement((FLOPPYUpdateStatement *) stm);
             break;
          case SelectStatement:
-            selectStatement((FLOPPYSelectStatement *) stm);
-            break;
+            return selectStatement((FLOPPYSelectStatement *) stm, shouldDelete);
          default:
             printf("what\n");
       }
@@ -785,6 +785,9 @@ void runStatement(char *query) {
    else {
       printf("Failed to parse FLOPPY-SQL statement.\n");
    }
+   *shouldDelete = false;
+
+   return 0;
 }
 
 int main() {
@@ -792,20 +795,32 @@ int main() {
 
    commence((char *)"db.dsk", buffer, BUF_BLOCKS, CACHE_BLOCKS);
 
-   char query[2048];
+   Server server(PORT_NUM);
 
-   int i = 0;
-   while (cin.good()) {
-      cin.getline(query + i, 2048);
-      if (query[i + cin.gcount() - 2] != ';') {
-         query[i + cin.gcount() - 1] = ' ';
-         i += cin.gcount();
-         continue;
-      }
-
-      i = 0;
-      runStatement(query);
+   if (server.setup_socket()) {
+      server.handle_client_traffic();
    }
+
+   // Stdin stuff:
+   //char query[2048];
+
+   //int i = 0;
+   //while (cin.good()) {
+   //   cin.getline(query + i, 2048);
+   //   if (query[i + cin.gcount() - 2] != ';') {
+   //      query[i + cin.gcount() - 1] = ' ';
+   //      i += cin.gcount();
+   //      continue;
+   //   }
+
+   //   i = 0;
+   //   bool shouldDelete;
+   //   int fd = runStatement(query, &shouldDelete);
+   //   if (fd > 0)
+   //      printTable(fd);
+   //   if (shouldDelete) // delete temp file
+   //      deleteFile(buffer, fd);
+   //}
 
    for (auto fIter = volatileFds.begin(); fIter != volatileFds.end(); fIter++) {
       TupleIterator iter(*fIter);
